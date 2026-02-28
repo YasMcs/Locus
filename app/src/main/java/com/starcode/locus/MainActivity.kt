@@ -1,46 +1,64 @@
 package com.starcode.locus
-import androidx.compose.ui.viewinterop.AndroidView
-import org.osmdroid.views.MapView
-import org.osmdroid.util.GeoPoint
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+
+import android.location.Location
 import android.os.Bundle
 import android.widget.Toast
-import com.starcode.locus.data.entities.UsuarioEntity
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.starcode.locus.data.database.AppDatabase
+import com.starcode.locus.data.entities.LugarEntity
+import com.starcode.locus.data.entities.UsuarioEntity
 import com.starcode.locus.ui.theme.LocusTheme
 import kotlinx.coroutines.launch
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.GeoPoint
+import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
+import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 
 class MainActivity : ComponentActivity() {
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        if (permissions[android.Manifest.permission.ACCESS_FINE_LOCATION] == true) {
+            Toast.makeText(this, "GPS Concedido", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        org.osmdroid.config.Configuration.getInstance().userAgentValue = packageName
 
-        // Inicializamos el DAO de Room
         val db = AppDatabase.getDatabase(this)
         val dao = db.locusDao()
 
-        org.osmdroid.config.Configuration.getInstance().userAgentValue = packageName
+        requestPermissionLauncher.launch(arrayOf(
+            android.Manifest.permission.ACCESS_FINE_LOCATION,
+            android.Manifest.permission.ACCESS_COARSE_LOCATION
+        ))
+
         setContent {
             LocusTheme {
                 val navController = rememberNavController()
+                val scope = rememberCoroutineScope()
 
-                // Grafo de Navegación
                 NavHost(navController = navController, startDestination = "registro") {
-
-                    // Pantalla de Registro
                     composable("registro") {
                         RegistroScreen(
                             onRegistrar = { nombre, email, pass ->
@@ -54,54 +72,74 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    // Pantalla 2: Login
                     composable("login") {
-                        // Definimos la interfaz del Login
                         LoginScreen(
                             onLogin = { email, pass ->
-
                                 lifecycleScope.launch {
                                     val usuarioEncontrado = dao.buscarUsuarioPorEmail(email)
-
-                                    if (usuarioEncontrado != null) {
-                                        if (usuarioEncontrado.password == pass) {
-                                            navController.navigate("mapa")
-                                        } else {
-                                            Toast.makeText(this@MainActivity, "Contraseña incorrecta", Toast.LENGTH_SHORT).show()
-                                        }
+                                    if (usuarioEncontrado?.password == pass) {
+                                        navController.navigate("mapa")
                                     } else {
-                                        Toast.makeText(this@MainActivity, "Usuario no encontrado", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(this@MainActivity, "Error de acceso", Toast.LENGTH_SHORT).show()
                                     }
                                 }
-                            } // <--- Cierre de onLogin
+                            }
                         )
                     }
 
                     composable("mapa") {
-                        val context = LocalContext.current
-
-                        // Configuramos la vista del mapa
                         AndroidView(
                             factory = { ctx ->
-                                org.osmdroid.views.MapView(ctx).apply {
-                                    setTileSource(org.osmdroid.tileprovider.tilesource.TileSourceFactory.MAPNIK)
+                                MapView(ctx).apply {
+                                    setTileSource(TileSourceFactory.MAPNIK)
                                     setMultiTouchControls(true)
-                                    controller.setZoom(15.0)
-                                    val startPoint = org.osmdroid.util.GeoPoint(19.4326, -99.1332)
-                                    controller.setCenter(startPoint)
+                                    controller.setZoom(17.0)
+
+                                    val locationOverlay = MyLocationNewOverlay(GpsMyLocationProvider(ctx), this)
+                                    locationOverlay.enableMyLocation()
+                                    locationOverlay.enableFollowLocation()
+
+                                    locationOverlay.runOnFirstFix {
+                                        val myPos = locationOverlay.myLocation
+                                        if (myPos != null) {
+                                            handler.post {
+                                                controller.animateTo(myPos)
+                                                scope.launch {
+                                                    val lugares = dao.obtenerLugares()
+                                                    val cercanos = filtrarLugaresCercanos(myPos.latitude, myPos.longitude, lugares)
+
+                                                    cercanos.forEach { lugar ->
+                                                        val marker = org.osmdroid.views.overlay.Marker(this@apply)
+                                                        marker.position = GeoPoint(lugar.latitud, lugar.longitud)
+                                                        marker.title = lugar.nombre_lugar
+                                                        overlays.add(marker)
+                                                    }
+                                                    invalidate()
+                                                }
+                                            }
+                                        }
+                                    }
+                                    overlays.add(locationOverlay)
                                 }
                             },
                             modifier = Modifier.fillMaxSize()
                         )
                     }
-                    }
                 }
-            }
+            } // Cierre LocusTheme
+        } // Cierre setContent
+    } // Cierre onCreate
+
+    private fun filtrarLugaresCercanos(miLat: Double, miLon: Double, lugares: List<LugarEntity>): List<LugarEntity> {
+        val resultados = FloatArray(1)
+        return lugares.filter {
+            Location.distanceBetween(miLat, miLon, it.latitud, it.longitud, resultados)
+            resultados[0] <= 500
         }
     }
+} // Cierre MainActivity
 
-
-// --- COMPONENTES DE INTERFAZ (Fueron los que te dieron error por no existir) ---
+// --- COMPONENTES UI (Fuera de la clase) ---
 
 @Composable
 fun RegistroScreen(onRegistrar: (String, String, String) -> Unit, onIrALogin: () -> Unit) {
@@ -111,13 +149,11 @@ fun RegistroScreen(onRegistrar: (String, String, String) -> Unit, onIrALogin: ()
 
     Column(Modifier.fillMaxSize().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Text("Crear Cuenta", style = MaterialTheme.typography.headlineLarge)
-        Spacer(Modifier.height(20.dp))
-        OutlinedTextField(value = nombre, onValueChange = { nombre = it }, label = { Text("Nombre") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(value = pass, onValueChange = { pass = it }, label = { Text("Contraseña") }, modifier = Modifier.fillMaxWidth(), visualTransformation = PasswordVisualTransformation())
-        Spacer(Modifier.height(20.dp))
-        Button(onClick = { onRegistrar(nombre, email, pass) }, modifier = Modifier.fillMaxWidth()) { Text("Registrarme") }
-        TextButton(onClick = onIrALogin) { Text("¿Ya tienes cuenta? Inicia sesión") }
+        OutlinedTextField(value = nombre, onValueChange = { nombre = it }, label = { Text("Nombre") })
+        OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") })
+        OutlinedTextField(value = pass, onValueChange = { pass = it }, label = { Text("Pass") }, visualTransformation = PasswordVisualTransformation())
+        Button(onClick = { onRegistrar(nombre, email, pass) }) { Text("Registrar") }
+        TextButton(onClick = onIrALogin) { Text("Ir al Login") }
     }
 }
 
@@ -127,11 +163,9 @@ fun LoginScreen(onLogin: (String, String) -> Unit) {
     var pass by remember { mutableStateOf("") }
 
     Column(Modifier.fillMaxSize().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Text("Iniciar Sesión", style = MaterialTheme.typography.headlineLarge)
-        Spacer(Modifier.height(20.dp))
-        OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(value = pass, onValueChange = { pass = it }, label = { Text("Contraseña") }, modifier = Modifier.fillMaxWidth(), visualTransformation = PasswordVisualTransformation())
-        Spacer(Modifier.height(20.dp))
-        Button(onClick = { onLogin(email, pass) }, modifier = Modifier.fillMaxWidth()) { Text("Entrar") }
+        Text("Login", style = MaterialTheme.typography.headlineLarge)
+        OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") })
+        OutlinedTextField(value = pass, onValueChange = { pass = it }, label = { Text("Pass") }, visualTransformation = PasswordVisualTransformation())
+        Button(onClick = { onLogin(email, pass) }) { Text("Entrar") }
     }
 }
