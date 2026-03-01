@@ -1,7 +1,6 @@
 package com.starcode.locus.data.database
 import com.starcode.locus.data.entities.UsuarioEntity
 import com.starcode.locus.data.entities.LugarEntity
-import com.starcode.locus.data.entities.FichaEntity
 import android.content.Context
 import androidx.room.Database
 import androidx.room.Room

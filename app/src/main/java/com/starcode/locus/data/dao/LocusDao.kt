@@ -3,7 +3,7 @@ package com.starcode.locus.data.dao
 import androidx.room.*
 import com.starcode.locus.data.entities.LugarEntity
 import com.starcode.locus.data.entities.UsuarioEntity
-import com.starcode.locus.data.entities.FichaEntity
+
 @Dao
 interface LocusDao {
     //lugares
