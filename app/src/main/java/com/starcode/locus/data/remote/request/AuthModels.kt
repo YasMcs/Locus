@@ -1,24 +1,36 @@
 package com.starcode.locus.data.remote.request
 
-import com.starcode.locus.data.entities.UsuarioEntity
+import kotlinx.serialization.Serializable
 
-/**
- * Este objeto es lo que le enviaremos al servidor
- * cuando el usuario intente iniciar sesión.
- */
-data class LoginRequest(
-    val email: String,
-    val pass: String
+@Serializable
+data class AuthResponse(
+    val token: String,
+    val usuario: UsuarioResponse // <-- Esto quita el error de 'response.usuario'
 )
 
-/**
- * Este objeto es lo que el servidor nos responderá.
- * success: si todo salió bien (true/false)
- * message: "Bienvenido" o "Contraseña incorrecta"
- * token: una clave de seguridad que envían las APIs (opcional por ahora)
- */
-data class AuthResponse(
-    val success: Boolean,
-    val message: String,
-    val token: String? = null
+@Serializable
+data class UsuarioResponse(
+    val id_usuario: Int,
+    val nombre: String,
+    val ape_pa: String,
+    val ape_ma: String?,
+    val fecha_nac: String?,
+    val email: String,
+    val fecha_registro: String?
+)
+
+@Serializable
+data class RegisterRequest( // <-- Asegúrate que se llame así para quitar el rojo del import
+    val nombre: String,
+    val ape_pa: String,
+    val ape_ma: String? = null,
+    val fecha_nac: String? = null,
+    val email: String,
+    val password: String
+)
+
+@Serializable
+data class LoginRequest(
+    val email: String,
+    val password: String
 )

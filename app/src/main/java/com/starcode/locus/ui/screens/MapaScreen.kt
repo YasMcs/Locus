@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Person // Icono para el perfil
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,9 +20,8 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import com.starcode.locus.data.dao.LocusDao
 import com.starcode.locus.data.entities.LugarEntity
-import com.starcode.locus.util.filtrarLugaresCercanos
+import com.starcode.locus.ui.viewmodels.MapaViewModel
 import kotlinx.coroutines.launch
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
@@ -32,17 +32,22 @@ import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 
 @Composable
-fun MapaScreen(dao: LocusDao) {
+fun MapaScreen(
+    viewModel: MapaViewModel,
+    onNavigateToPerfil: () -> Unit // AGREGADO: Callback para navegación
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
+
+    val lugares by viewModel.lugares.collectAsState()
+    val cargando by viewModel.estaCargando.collectAsState()
 
     // Colores de marca
     val LocusActionOrange = Color(0xFFE6673D)
     val LocusBackground = Color(0xFFFDF6EE)
     val LocusDark = Color(0xFF333333)
 
-    // Estados
     var lugarSeleccionado by remember { mutableStateOf<LugarEntity?>(null) }
     var mostrarFicha by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -74,6 +79,45 @@ fun MapaScreen(dao: LocusDao) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    LaunchedEffect(lugares) {
+        mapView.overlays.clear()
+        mapView.overlays.add(locationOverlay)
+        lugares.forEach { lugar ->
+            val marker = Marker(mapView).apply {
+                position = GeoPoint(lugar.latitud, lugar.longitud)
+                infoWindow = null
+                val icon = ContextCompat.getDrawable(context, org.osmdroid.library.R.drawable.marker_default)
+                icon?.let {
+                    it.setTint(android.graphics.Color.parseColor("#E6673D"))
+                    it.setTintMode(PorterDuff.Mode.SRC_ATOP)
+                    this.icon = it
+                }
+                setOnMarkerClickListener { _, _ ->
+                    val userPos = locationOverlay.myLocation
+                    if (userPos != null) {
+                        val results = FloatArray(1)
+                        android.location.Location.distanceBetween(
+                            userPos.latitude, userPos.longitude,
+                            lugar.latitud, lugar.longitud,
+                            results
+                        )
+                        val radioReal = lugar.radio_activacion ?: 50
+                        if (results[0] <= radioReal) {
+                            lugarSeleccionado = lugar
+                            mostrarFicha = true
+                        } else {
+                            val faltante = (results[0] - radioReal).toInt()
+                            scope.launch { snackbarHostState.showSnackbar("👣 Te faltan $faltante metros para desbloquear.") }
+                        }
+                    }
+                    true
+                }
+            }
+            mapView.overlays.add(marker)
+        }
+        mapView.invalidate()
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         AndroidView(
             factory = {
@@ -82,72 +126,25 @@ fun MapaScreen(dao: LocusDao) {
                     setMultiTouchControls(true)
                     zoomController.setVisibility(org.osmdroid.views.CustomZoomButtonsController.Visibility.NEVER)
                     controller.setZoom(18.0)
-
                     locationOverlay.runOnFirstFix {
                         val myPos = locationOverlay.myLocation
-                        if (myPos != null) {
-                            handler.post {
-                                controller.animateTo(myPos)
-                                scope.launch {
-                                    val lugares = dao.obtenerLugares()
-                                    val cercanos = filtrarLugaresCercanos(myPos.latitude, myPos.longitude, lugares)
-
-                                    cercanos.forEach { lugar ->
-                                        val marker = Marker(mapView)
-                                        marker.position = GeoPoint(lugar.latitud, lugar.longitud)
-
-                                        // --- CAMBIAR EL PIN VERDE A NARANJA ---
-                                        val icon = ContextCompat.getDrawable(context, org.osmdroid.library.R.drawable.marker_default)
-                                        icon?.let {
-                                            it.setTint(android.graphics.Color.parseColor("#E6673D"))
-                                            // Usamos SRC_ATOP para asegurar que el color cubra bien el icono verde
-                                            it.setTintMode(PorterDuff.Mode.SRC_ATOP)
-                                            marker.icon = it
-                                        }
-
-                                        marker.infoWindow = null
-
-                                        marker.setOnMarkerClickListener { _, _ ->
-                                            val userPos = locationOverlay.myLocation
-                                            if (userPos != null) {
-                                                val results = FloatArray(1)
-                                                android.location.Location.distanceBetween(
-                                                    userPos.latitude, userPos.longitude,
-                                                    lugar.latitud, lugar.longitud,
-                                                    results
-                                                )
-                                                val distanciaMetros = results[0]
-
-                                                if (distanciaMetros <= lugar.radio_activacion) {
-                                                    lugarSeleccionado = lugar
-                                                    mostrarFicha = true
-                                                } else {
-                                                    val faltante = (distanciaMetros - lugar.radio_activacion).toInt()
-                                                    scope.launch {
-                                                        snackbarHostState.showSnackbar(
-                                                            "👣 Te faltan $faltante metros para desbloquear esta historia."
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                            true
-                                        }
-                                        overlays.add(marker)
-                                    }
-                                    invalidate()
-                                }
-                            }
-                        }
+                        if (myPos != null) { handler.post { controller.animateTo(myPos) } }
                     }
-                    overlays.add(locationOverlay)
                 }
             },
             modifier = Modifier.fillMaxSize()
         )
 
+        if (cargando) {
+            LinearProgressIndicator(
+                modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter),
+                color = LocusActionOrange
+            )
+        }
+
         // Panel Superior
         Surface(
-            modifier = Modifier.fillMaxWidth().padding(16.dp).align(Alignment.TopCenter),
+            modifier = Modifier.fillMaxWidth().padding(16.dp).align(Alignment.TopCenter).padding(top = 8.dp),
             shape = RoundedCornerShape(24.dp),
             color = LocusBackground.copy(alpha = 0.95f),
             shadowElevation = 6.dp
@@ -157,12 +154,24 @@ fun MapaScreen(dao: LocusDao) {
                 Spacer(Modifier.width(12.dp))
                 Column {
                     Text("Explorador Locus", fontWeight = FontWeight.ExtraBold, color = LocusDark)
-                    Text("Acércate a los pines para ver su historia", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
+                    Text("Suchiapa, Chiapas", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
                 }
             }
         }
 
-        // Aviso de Distancia (Snackbar)
+        // AGREGADO: Botón Flotante para ir al Perfil
+        SmallFloatingActionButton(
+            onClick = onNavigateToPerfil,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 90.dp, end = 24.dp),
+            containerColor = LocusBackground,
+            contentColor = LocusActionOrange,
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Icon(Icons.Default.Person, contentDescription = "Perfil")
+        }
+
         SnackbarHost(
             hostState = snackbarHostState,
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp)
@@ -181,70 +190,25 @@ fun MapaScreen(dao: LocusDao) {
             }
         }
 
-        // Ficha Histórica (AlertDialog)
-        // Ficha Histórica (AlertDialog)
         if (mostrarFicha && lugarSeleccionado != null) {
             AlertDialog(
                 onDismissRequest = { mostrarFicha = false },
                 shape = RoundedCornerShape(28.dp),
                 containerColor = LocusBackground,
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Default.LocationOn,
-                            contentDescription = null,
-                            tint = LocusActionOrange,
-                            modifier = Modifier.size(28.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            text = lugarSeleccionado!!.titulo_ficha,
-                            fontWeight = FontWeight.ExtraBold, // Más grueso para que resalte
-                            color = LocusDark,                 // Color oscuro definido arriba
-                            style = MaterialTheme.typography.headlineSmall // Tamaño más imponente
-                        )
-                    }
-                },
+                title = { Text(text = lugarSeleccionado?.titulo_ficha ?: "Lugar sin nombre", fontWeight = FontWeight.ExtraBold) },
                 text = {
                     Column {
-                        Text(
-                            text = lugarSeleccionado!!.descripcion_hist,
-                            lineHeight = 24.sp,
-                            color = LocusDark,
-                            style = MaterialTheme.typography.bodyLarge
-                        )
+                        Text(text = lugarSeleccionado?.descripcion_hist ?: "No hay descripción disponible.")
                         Spacer(modifier = Modifier.height(20.dp))
-                        Surface(
-                            color = LocusActionOrange.copy(alpha = 0.1f),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Text(
-                                    text = "💡 DATO CURIOSO",
-                                    fontWeight = FontWeight.Bold,
-                                    color = LocusActionOrange,
-                                    style = MaterialTheme.typography.labelLarge
-                                )
-                                Text(
-                                    text = lugarSeleccionado!!.dato_curioso,
-                                    color = Color.DarkGray,
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                            }
-                        }
+                        Text(text = lugarSeleccionado?.dato_curioso ?: "¡Pronto habrá más información!", fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
                     }
                 },
                 confirmButton = {
                     TextButton(onClick = { mostrarFicha = false }) {
-                        Text(
-                            text = "ENTENDIDO",
-                            fontWeight = FontWeight.ExtraBold,
-                            color = LocusActionOrange,
-                            style = MaterialTheme.typography.labelLarge
-                        )
+                        Text("ENTENDIDO", fontWeight = FontWeight.ExtraBold, color = LocusActionOrange)
                     }
                 }
             )
         }
-}
+    }
 }

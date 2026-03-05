@@ -13,6 +13,7 @@ import com.starcode.locus.data.database.AppDatabase
 import com.starcode.locus.ui.theme.LocusTheme
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
+import com.starcode.locus.data.remote.RetrofitClient
 import kotlinx.coroutines.launch
 import com.starcode.locus.ui.navigation.NavGraph
 
@@ -20,7 +21,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
+        RetrofitClient.init(applicationContext)
         // 1. IMPORTANTE: Configuración de OSMDroid ANTES del setContent
         org.osmdroid.config.Configuration.getInstance().load(
             applicationContext,
@@ -30,7 +31,8 @@ class MainActivity : ComponentActivity() {
 
         val db = AppDatabase.getDatabase(this)
         val dao = db.locusDao()
-        com.starcode.locus.util.DatabaseSeeder.insertarPuntosDePrueba(dao)
+
+        // com.starcode.locus.util.DatabaseSeeder.insertarPuntosDePrueba(dao)
         setContent {
             LocusTheme {
                 // 2. Pedir permisos automáticamente al iniciar
