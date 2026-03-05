@@ -52,6 +52,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.runtime)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -67,5 +68,11 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.6.1")
     // Librería para OpenStreetMap en Compose
     implementation("org.osmdroid:osmdroid-android:6.1.18")
-
+// Retrofit para peticiones HTTP
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+// Converter Gson para convertir JSON a objetos Kotlin
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+// Logging Interceptor (opcional, para ver qué pasa en la consola)
+    implementation("com.squareup.okhttp3:logging-interceptor:4.11.0")
+    implementation("androidx.compose.material:material-icons-extended")
 }

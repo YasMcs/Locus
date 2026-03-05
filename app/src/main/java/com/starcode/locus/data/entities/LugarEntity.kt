@@ -5,9 +5,9 @@ import androidx.room.PrimaryKey
 import androidx.room.ForeignKey
 @Entity(
     tableName = "lugares",
-    foreignKeys = [
-        ForeignKey(entity = CategoriaEntity::class, parentColumns = ["id_categoria"], childColumns = ["id_categoria"])
-    ]
+    /* foreignKeys = [
+         ForeignKey(entity = CategoriaEntity::class, parentColumns = ["id_categoria"], childColumns = ["id_categoria"])
+     ] */
 )
 data class LugarEntity(
     @PrimaryKey(autoGenerate = true) val id_lugar: Int = 0,
