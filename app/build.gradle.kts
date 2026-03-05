@@ -75,4 +75,6 @@ dependencies {
 // Logging Interceptor (opcional, para ver qué pasa en la consola)
     implementation("com.squareup.okhttp3:logging-interceptor:4.11.0")
     implementation("androidx.compose.material:material-icons-extended")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+
 }

@@ -1,14 +1,10 @@
 package com.starcode.locus.data.remote.request
 
-import kotlinx.serialization.Serializable
-
-@Serializable
 data class AuthResponse(
     val token: String,
-    val usuario: UsuarioResponse // <-- Esto quita el error de 'response.usuario'
+    val usuario: UsuarioResponse
 )
 
-@Serializable
 data class UsuarioResponse(
     val id_usuario: Int,
     val nombre: String,
@@ -19,8 +15,7 @@ data class UsuarioResponse(
     val fecha_registro: String?
 )
 
-@Serializable
-data class RegisterRequest( // <-- Asegúrate que se llame así para quitar el rojo del import
+data class RegisterRequest(
     val nombre: String,
     val ape_pa: String,
     val ape_ma: String? = null,
@@ -29,7 +24,6 @@ data class RegisterRequest( // <-- Asegúrate que se llame así para quitar el r
     val password: String
 )
 
-@Serializable
 data class LoginRequest(
     val email: String,
     val password: String

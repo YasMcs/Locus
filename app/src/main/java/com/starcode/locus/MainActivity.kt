@@ -1,43 +1,42 @@
 package com.starcode.locus
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.navigation.compose.rememberNavController
 import com.starcode.locus.data.database.AppDatabase
-import com.starcode.locus.ui.theme.LocusTheme
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.platform.LocalContext
 import com.starcode.locus.data.remote.RetrofitClient
-import kotlinx.coroutines.launch
 import com.starcode.locus.ui.navigation.NavGraph
+import com.starcode.locus.ui.theme.LocusTheme
+import androidx.compose.ui.platform.LocalContext
 
 class MainActivity : ComponentActivity() {
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // ✅ PRIMERO QUE TODO: inicializar RetrofitClient con el contexto
+        // Si esto va después del setContent, el token no estará disponible
         RetrofitClient.init(applicationContext)
-        // 1. IMPORTANTE: Configuración de OSMDroid ANTES del setContent
+        Log.d("LocusDebug", "✅ RetrofitClient inicializado")
+
+        // ✅ SEGUNDO: Configuración de OSMDroid
         org.osmdroid.config.Configuration.getInstance().load(
             applicationContext,
             getSharedPreferences("osmdroid", MODE_PRIVATE)
         )
         org.osmdroid.config.Configuration.getInstance().userAgentValue = packageName
+        Log.d("LocusDebug", "✅ OSMDroid configurado")
 
         val db = AppDatabase.getDatabase(this)
         val dao = db.locusDao()
 
-        // com.starcode.locus.util.DatabaseSeeder.insertarPuntosDePrueba(dao)
         setContent {
             LocusTheme {
-                // 2. Pedir permisos automáticamente al iniciar
                 RequestLocationPermission()
-
                 val navController = rememberNavController()
                 NavGraph(navController = navController, dao = dao)
             }
@@ -47,18 +46,16 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun RequestLocationPermission() {
-    val context = LocalContext.current
     val launcher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        // Aquí podrías manejar si el usuario denegó los permisos
+        Log.d("LocusDebug", "Permisos resultado: $permissions")
     }
-
     LaunchedEffect(Unit) {
         launcher.launch(arrayOf(
             android.Manifest.permission.ACCESS_FINE_LOCATION,
             android.Manifest.permission.ACCESS_COARSE_LOCATION,
-            android.Manifest.permission.WRITE_EXTERNAL_STORAGE // Necesario para guardar mapas en caché
+            android.Manifest.permission.WRITE_EXTERNAL_STORAGE
         ))
     }
 }

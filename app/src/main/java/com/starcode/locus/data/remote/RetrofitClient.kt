@@ -1,41 +1,57 @@
 package com.starcode.locus.data.remote
 
 import android.content.Context
+import android.util.Log
 import okhttp3.OkHttpClient
 import okhttp3.Interceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 object RetrofitClient {
+
     private const val BASE_URL = "http://192.168.1.167:8080/"
-    private var sessionManager: SessionManager? = null
 
-    // Función para inicializar el manager desde el MainActivity o Application
+    private var appContext: Context? = null
+
     fun init(context: Context) {
-        sessionManager = SessionManager(context)
+        appContext = context.applicationContext
+        Log.d("LocusDebug", "✅ RetrofitClient.init llamado")
+
+        // ✅ Verificar si ya hay token guardado
+        val token = SessionManager(context.applicationContext).obtenerToken()
+        Log.d("LocusDebug", "🔑 Token al iniciar: ${if (token != null) "EXISTE (${token.take(20)}...)" else "NULL - usuario no logueado"}")
     }
 
-    private val authInterceptor = Interceptor { chain ->
-        val requestBuilder = chain.request().newBuilder()
+    val instance: LocusApiService
+        get() {
+            val context = appContext
 
-        // Si tenemos un token guardado, lo añadimos al Header
-        sessionManager?.obtenerToken()?.let { token ->
-            requestBuilder.addHeader("Authorization", "Bearer $token")
+            val interceptor = Interceptor { chain ->
+                val requestBuilder = chain.request().newBuilder()
+
+                if (context != null) {
+                    val token = SessionManager(context).obtenerToken()
+                    Log.d("LocusDebug", "🔑 Token en interceptor: ${if (token != null) "ENVIANDO (${token.take(20)}...)" else "NULL - sin token"}")
+
+                    if (token != null) {
+                        requestBuilder.addHeader("Authorization", "Bearer $token")
+                    }
+                } else {
+                    Log.e("LocusDebug", "❌ appContext es NULL en interceptor")
+                }
+
+                chain.proceed(requestBuilder.build())
+            }
+
+            val client = OkHttpClient.Builder()
+                .addInterceptor(interceptor)
+                .build()
+
+            return Retrofit.Builder()
+                .baseUrl(BASE_URL)
+                .client(client)
+                .addConverterFactory(GsonConverterFactory.create())
+                .build()
+                .create(LocusApiService::class.java)
         }
-
-        chain.proceed(requestBuilder.build())
-    }
-
-    private val client = OkHttpClient.Builder()
-        .addInterceptor(authInterceptor)
-        .build()
-
-    val instance: LocusApiService by lazy {
-        Retrofit.Builder()
-            .baseUrl(BASE_URL)
-            .client(client) // <--- Aquí inyectamos el interceptor
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
-            .create(LocusApiService::class.java)
-    }
 }

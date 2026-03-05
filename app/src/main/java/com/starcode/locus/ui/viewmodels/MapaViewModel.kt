@@ -6,30 +6,30 @@ import androidx.lifecycle.viewModelScope
 import com.starcode.locus.data.dao.LocusDao
 import com.starcode.locus.data.entities.LugarEntity
 import com.starcode.locus.data.remote.RetrofitClient
+import com.starcode.locus.data.remote.SessionManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 class MapaViewModel(private val dao: LocusDao) : ViewModel() {
 
-    // Estado para la lista de lugares
     private val _lugares = MutableStateFlow<List<LugarEntity>>(emptyList())
     val lugares: StateFlow<List<LugarEntity>> = _lugares
 
-    // Estado para saber si estamos cargando datos
     private val _estaCargando = MutableStateFlow(false)
     val estaCargando: StateFlow<Boolean> = _estaCargando
 
     init {
-        // Al iniciar, cargamos lo que haya en la base de datos local
+        Log.d("LocusDebug", "✅ MapaViewModel creado")
         cargarLugaresDesdeDB()
-        // Y sincronizamos con el servidor
         sincronizarConServidor()
     }
 
     private fun cargarLugaresDesdeDB() {
         viewModelScope.launch {
-            _lugares.value = dao.obtenerLugares()
+            val lugaresLocales = dao.obtenerLugares()
+            Log.d("LocusDebug", "📦 Lugares en DB local: ${lugaresLocales.size}")
+            _lugares.value = lugaresLocales
         }
     }
 
@@ -37,29 +37,49 @@ class MapaViewModel(private val dao: LocusDao) : ViewModel() {
         viewModelScope.launch {
             _estaCargando.value = true
             try {
-                Log.d("LocusDebug", "Iniciando petición al servidor...")
+                Log.d("LocusDebug", "🌐 Iniciando petición al servidor...")
+                Log.d("LocusDebug", "🔑 Verificando token antes de petición...")
 
                 val lugaresApi = RetrofitClient.instance.obtenerTodosLosLugares()
 
+                Log.d("LocusDebug", "📡 Respuesta recibida. Cantidad: ${lugaresApi.size}")
+
                 if (lugaresApi.isEmpty()) {
-                    Log.d("LocusDebug", "⚠️ La lista llegó VACÍA. Revisa si Kian tiene datos en la tabla.")
+                    Log.w("LocusDebug", "⚠️ La lista llegó VACÍA.")
+                    Log.w("LocusDebug", "   Posibles causas:")
+                    Log.w("LocusDebug", "   1. No hay lugares en la BD del servidor")
+                    Log.w("LocusDebug", "   2. El token JWT no se está enviando")
+                    Log.w("LocusDebug", "   3. El servidor respondió 401 sin lanzar excepción")
                 } else {
                     lugaresApi.forEach {
-                        Log.d("LocusDebug", "✅ Recibido del servidor: ${it.nombre_lugar}")
+                        Log.d("LocusDebug", "✅ Lugar recibido: ${it.nombre_lugar} (lat: ${it.latitud}, lon: ${it.longitud})")
                     }
-
                     dao.borrarTodosLosLugares()
                     dao.insertarLugares(lugaresApi)
                     _lugares.value = dao.obtenerLugares()
-                    Log.d("LocusDebug", "DB Local actualizada con ${lugaresApi.size} lugares.")
+                    Log.d("LocusDebug", "✅ DB Local actualizada con ${lugaresApi.size} lugares")
                 }
 
+            } catch (e: retrofit2.HttpException) {
+                // ✅ AGREGADO: captura específica de errores HTTP como 401, 403, 500
+                Log.e("LocusDebug", "❌ ERROR HTTP: Código ${e.code()}")
+                Log.e("LocusDebug", "   Mensaje: ${e.message()}")
+                when (e.code()) {
+                    401 -> Log.e("LocusDebug", "   🔑 ERROR 401: Token inválido o no enviado")
+                    403 -> Log.e("LocusDebug", "   🚫 ERROR 403: Sin permisos")
+                    500 -> Log.e("LocusDebug", "   💥 ERROR 500: Error interno del servidor")
+                }
+            } catch (e: java.net.ConnectException) {
+                Log.e("LocusDebug", "❌ ERROR DE CONEXIÓN: No se pudo conectar al servidor")
+                Log.e("LocusDebug", "   Verifica que la API esté corriendo y la IP sea correcta")
+                Log.e("LocusDebug", "   URL actual: http://192.168.1.167:8080/api/lugares")
+            } catch (e: java.net.SocketTimeoutException) {
+                Log.e("LocusDebug", "❌ TIMEOUT: El servidor tardó demasiado en responder")
             } catch (e: Exception) {
-                // ESTO ES LO QUE TIENES QUE ACTUALIZAR:
-                Log.e("LocusDebug", "❌ ERROR FATAL EN SINCRONIZACIÓN")
-                Log.e("LocusDebug", "Mensaje: ${e.message}")
-                Log.e("LocusDebug", "Causa: ${e.cause}")
-                e.printStackTrace() // Esto imprime toda la ruta del error en rojo en el Logcat
+                Log.e("LocusDebug", "❌ ERROR DESCONOCIDO: ${e.javaClass.simpleName}")
+                Log.e("LocusDebug", "   Mensaje: ${e.message}")
+                Log.e("LocusDebug", "   Causa: ${e.cause}")
+                e.printStackTrace()
             } finally {
                 _estaCargando.value = false
             }
