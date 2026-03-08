@@ -14,141 +14,148 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.starcode.locus.ui.viewmodels.AuthResult
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RegistroScreen(onRegistrar: (String, String, String) -> Unit, onIrALogin: () -> Unit) {
+fun RegistroScreen(
+    onRegistrar: (String, String, String, String, String, String) -> Unit,
+    onIrALogin: () -> Unit,
+    authState: AuthResult,
+    fechaValidada: String
+) {
     var nombre by remember { mutableStateOf("") }
+    var apePa by remember { mutableStateOf("") }
+    var apeMa by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var pass by remember { mutableStateOf("") }
 
-    // Colores premium consistentes
     val LocusDeepPurple = Color(0xFF1D1B20)
     val LocusActionOrange = Color(0xFFE6673D)
     val LocusBackground = Color(0xFFFDF6EE)
+    val LocusSurfaceWhite = Color(0xFFFFFFFF)
 
-    Box(
+    val customTextFieldColors = OutlinedTextFieldDefaults.colors(
+        focusedTextColor = LocusDeepPurple,
+        unfocusedTextColor = LocusDeepPurple,
+        focusedContainerColor = LocusSurfaceWhite,
+        unfocusedContainerColor = LocusSurfaceWhite,
+        focusedBorderColor = LocusActionOrange,
+        unfocusedBorderColor = Color(0xFFD1D1D1),
+        focusedLabelColor = LocusActionOrange
+    )
+
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .background(LocusBackground)
+            .padding(horizontal = 32.dp)
+            .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 32.dp)
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            // Título con la identidad visual de Locus
-            Text(
-                text = "Locus",
-                style = MaterialTheme.typography.displayMedium.copy(
-                    fontWeight = FontWeight.ExtraBold,
-                    color = LocusDeepPurple,
-                    letterSpacing = (-2).sp
-                )
+        Spacer(modifier = Modifier.height(48.dp))
+
+        Text(
+            text = "Locus",
+            style = MaterialTheme.typography.displayMedium.copy(
+                fontWeight = FontWeight.ExtraBold,
+                color = LocusDeepPurple,
+                letterSpacing = (-2).sp
             )
+        )
+        Text(text = "Crea tu perfil", color = Color.Gray)
 
-            Text(
-                text = "Crea tu cuenta para comenzar",
-                color = Color.Gray,
-                style = MaterialTheme.typography.bodyMedium
-            )
+        Spacer(modifier = Modifier.height(40.dp))
 
-            Spacer(modifier = Modifier.height(40.dp))
+        OutlinedTextField(
+            value = nombre,
+            onValueChange = { nombre = it },
+            label = { Text("Nombre(s)") },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = customTextFieldColors
+        )
 
-            // Campo de Nombre
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Row(modifier = Modifier.fillMaxWidth()) {
             OutlinedTextField(
-                value = nombre,
-                onValueChange = { nombre = it },
-                label = { Text("Nombre completo") },
-                modifier = Modifier.fillMaxWidth(),
+                value = apePa,
+                onValueChange = { apePa = it },
+                label = { Text("Ap. Paterno") },
+                modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(16.dp),
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = LocusActionOrange,
-                    unfocusedBorderColor = Color(0xFFE0E0E0),
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White,
-                    focusedLabelColor = LocusActionOrange
-                )
+                colors = customTextFieldColors
             )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Campo de Email
+            Spacer(modifier = Modifier.width(8.dp))
             OutlinedTextField(
-                value = email,
-                onValueChange = { email = it },
-                label = { Text("Correo electrónico") },
-                modifier = Modifier.fillMaxWidth(),
+                value = apeMa,
+                onValueChange = { apeMa = it },
+                label = { Text("Ap. Materno") },
+                modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(16.dp),
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = LocusActionOrange,
-                    unfocusedBorderColor = Color(0xFFE0E0E0),
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White,
-                    focusedLabelColor = LocusActionOrange
-                )
+                colors = customTextFieldColors
             )
+        }
 
-            Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
-            // Campo de Contraseña
-            OutlinedTextField(
-                value = pass,
-                onValueChange = { pass = it },
-                label = { Text("Contraseña") },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = LocusActionOrange,
-                    unfocusedBorderColor = Color(0xFFE0E0E0),
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White,
-                    focusedLabelColor = LocusActionOrange
-                )
-            )
+        OutlinedTextField(
+            value = email,
+            onValueChange = { email = it },
+            label = { Text("Correo electrónico") },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = customTextFieldColors
+        )
 
-            Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
-            // Botón de Registro
-            Button(
-                onClick = { onRegistrar(nombre, email, pass) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(60.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = LocusActionOrange)
-            ) {
-                Text(
-                    "Crear cuenta",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                )
-            }
+        OutlinedTextField(
+            value = pass,
+            onValueChange = { pass = it },
+            label = { Text("Contraseña") },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            visualTransformation = PasswordVisualTransformation(),
+            colors = customTextFieldColors
+        )
 
-            Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(32.dp))
 
-            // Enlace de vuelta al Login
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("¿Ya tienes cuenta?", color = Color.Gray)
-                TextButton(onClick = onIrALogin) {
-                    Text(
-                        "Inicia sesión",
-                        color = LocusActionOrange,
-                        fontWeight = FontWeight.Bold
-                    )
+        Button(
+            onClick = {
+                if (nombre.isNotBlank() && email.contains("@") && pass.length >= 6) {
+                    onRegistrar(nombre, apePa, apeMa, fechaValidada, email, pass)
                 }
+            },
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = LocusActionOrange,
+                contentColor = Color.White,
+                disabledContainerColor = Color(0xFFCCCCCC),
+                disabledContentColor = Color.DarkGray
+            ),
+            enabled = authState !is AuthResult.Loading
+        ) {
+            if (authState is AuthResult.Loading) {
+                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+            } else {
+                Text("Finalizar registro", fontWeight = FontWeight.Bold, fontSize = 16.sp)
             }
         }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("¿Ya tienes cuenta?", color = Color.Gray)
+            TextButton(onClick = onIrALogin) {
+                Text("Inicia sesión", color = LocusActionOrange, fontWeight = FontWeight.Bold)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(48.dp))
     }
 }

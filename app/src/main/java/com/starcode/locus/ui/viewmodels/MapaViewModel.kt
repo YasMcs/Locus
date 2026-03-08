@@ -1,7 +1,11 @@
 package com.starcode.locus.ui.viewmodels
 
+import android.app.Application
 import android.util.Log
-import androidx.lifecycle.ViewModel
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.starcode.locus.data.dao.LocusDao
 import com.starcode.locus.data.entities.LugarEntity
@@ -11,7 +15,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-class MapaViewModel(private val dao: LocusDao) : ViewModel() {
+class MapaViewModel(application: Application, private val dao: LocusDao) : AndroidViewModel(application) {
+
+    // --- ESTADOS DE UI ---
+    var debugStep by mutableStateOf("Iniciando...")
 
     private val _lugares = MutableStateFlow<List<LugarEntity>>(emptyList())
     val lugares: StateFlow<List<LugarEntity>> = _lugares
@@ -19,67 +26,63 @@ class MapaViewModel(private val dao: LocusDao) : ViewModel() {
     private val _estaCargando = MutableStateFlow(false)
     val estaCargando: StateFlow<Boolean> = _estaCargando
 
+    private val sessionManager = SessionManager(application)
+
     init {
-        Log.d("LocusDebug", "✅ MapaViewModel creado")
-        cargarLugaresDesdeDB()
-        sincronizarConServidor()
+        Log.d("LocusDebug", "🚀 MapaViewModel instanciado correctamente")
+        // No hace falta llamar a nada aquí si ya lo llamas desde el LaunchedEffect de la Screen
     }
 
-    private fun cargarLugaresDesdeDB() {
+    // --- FUNCIÓN QUE LLAMA LA SCREEN (Corregida) ---
+    fun cargarLugares() {
+        debugStep = "1. Llamando a obtenerLugares..."
         viewModelScope.launch {
-            val lugaresLocales = dao.obtenerLugares()
-            Log.d("LocusDebug", "📦 Lugares en DB local: ${lugaresLocales.size}")
-            _lugares.value = lugaresLocales
+            try {
+                // ✅ Usamos el nombre exacto de tu LocusDao
+                val respuesta = dao.obtenerLugares()
+
+                if (respuesta.isEmpty()) {
+                    debugStep = "⚠️ DB Vacía - Sincronizando..."
+                    sincronizarConServidor()
+                } else {
+                    debugStep = "✅ Éxito: ${respuesta.size} lugares cargados"
+                    _lugares.value = respuesta
+                    // Intentamos actualizar con el servidor en segundo plano
+                    sincronizarConServidor()
+                }
+            } catch (e: Exception) {
+                debugStep = "❌ Error: ${e.localizedMessage}"
+                Log.e("LocusDebug", "Error en cargarLugares", e)
+            }
         }
     }
 
+    // En MapaViewModel.kt
     fun sincronizarConServidor() {
         viewModelScope.launch {
             _estaCargando.value = true
             try {
-                Log.d("LocusDebug", "🌐 Iniciando petición al servidor...")
-                Log.d("LocusDebug", "🔑 Verificando token antes de petición...")
+                val token = sessionManager.obtenerToken() ?: return@launch
+                val authHeader = "Bearer $token"
 
-                val lugaresApi = RetrofitClient.instance.obtenerTodosLosLugares()
+                // 1. Primero las categorías (¡Obligatorio por la ForeignKey!)
+                debugStep = "📂 Sincronizando categorías..."
+                val cats = RetrofitClient.instance.obtenerCategorias(authHeader)
+                dao.insertarCategorias(cats)
 
-                Log.d("LocusDebug", "📡 Respuesta recibida. Cantidad: ${lugaresApi.size}")
+                // 2. Ahora los lugares
+                debugStep = "🌐 Descargando lugares..."
+                val lugaresApi = RetrofitClient.instance.obtenerTodosLosLugares(authHeader)
 
-                if (lugaresApi.isEmpty()) {
-                    Log.w("LocusDebug", "⚠️ La lista llegó VACÍA.")
-                    Log.w("LocusDebug", "   Posibles causas:")
-                    Log.w("LocusDebug", "   1. No hay lugares en la BD del servidor")
-                    Log.w("LocusDebug", "   2. El token JWT no se está enviando")
-                    Log.w("LocusDebug", "   3. El servidor respondió 401 sin lanzar excepción")
-                } else {
-                    lugaresApi.forEach {
-                        Log.d("LocusDebug", "✅ Lugar recibido: ${it.nombre_lugar} (lat: ${it.latitud}, lon: ${it.longitud})")
-                    }
-                    dao.borrarTodosLosLugares()
-                    dao.insertarLugares(lugaresApi)
-                    _lugares.value = dao.obtenerLugares()
-                    Log.d("LocusDebug", "✅ DB Local actualizada con ${lugaresApi.size} lugares")
-                }
+                dao.borrarTodosLosLugares()
+                dao.insertarLugares(lugaresApi)
 
-            } catch (e: retrofit2.HttpException) {
-                // ✅ AGREGADO: captura específica de errores HTTP como 401, 403, 500
-                Log.e("LocusDebug", "❌ ERROR HTTP: Código ${e.code()}")
-                Log.e("LocusDebug", "   Mensaje: ${e.message()}")
-                when (e.code()) {
-                    401 -> Log.e("LocusDebug", "   🔑 ERROR 401: Token inválido o no enviado")
-                    403 -> Log.e("LocusDebug", "   🚫 ERROR 403: Sin permisos")
-                    500 -> Log.e("LocusDebug", "   💥 ERROR 500: Error interno del servidor")
-                }
-            } catch (e: java.net.ConnectException) {
-                Log.e("LocusDebug", "❌ ERROR DE CONEXIÓN: No se pudo conectar al servidor")
-                Log.e("LocusDebug", "   Verifica que la API esté corriendo y la IP sea correcta")
-                Log.e("LocusDebug", "   URL actual: http://192.168.1.167:8080/api/lugares")
-            } catch (e: java.net.SocketTimeoutException) {
-                Log.e("LocusDebug", "❌ TIMEOUT: El servidor tardó demasiado en responder")
+                _lugares.value = dao.obtenerLugares()
+                debugStep = "✅ ¡Mapa listo con ${lugaresApi.size} puntos!"
+
             } catch (e: Exception) {
-                Log.e("LocusDebug", "❌ ERROR DESCONOCIDO: ${e.javaClass.simpleName}")
-                Log.e("LocusDebug", "   Mensaje: ${e.message}")
-                Log.e("LocusDebug", "   Causa: ${e.cause}")
-                e.printStackTrace()
+                debugStep = "❌ Error: ${e.javaClass.simpleName}"
+                Log.e("LocusDebug", "Fallo en sync", e)
             } finally {
                 _estaCargando.value = false
             }

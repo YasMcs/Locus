@@ -16,8 +16,7 @@ interface LocusDao {
     suspend fun buscarUsuarioPorEmail(email: String): UsuarioEntity?
 
     // --- LUGARES ---
-    // Es vital poder insertar la lista completa que devuelve la API
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = OnConflictStrategy.REPLACE) // Esto pisa el dato viejo y evita el error
     suspend fun insertarLugares(lugares: List<LugarEntity>)
 
     @Query("SELECT * FROM lugares")
@@ -44,4 +43,5 @@ interface LocusDao {
 
     @Query("DELETE FROM lugares")
     suspend fun borrarTodosLosLugares()
+
 }

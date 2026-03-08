@@ -1,34 +1,22 @@
- package com.starcode.locus.ui.viewmodels
+package com.starcode.locus.ui.viewmodels
 
 import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 class EdadViewModel : ViewModel() {
-    // Guardamos la edad como String para que sea fácil de escribir en el TextField
-    private val _edad = MutableStateFlow("")
-    val edad: StateFlow<String> = _edad
+    // Guardamos la fecha en formato YYYY-MM-DD para la base de datos
+    private val _fechaParaDB = MutableStateFlow("")
+    val fechaParaDB: StateFlow<String> = _fechaParaDB
 
-    // Para controlar si mostramos el mensaje de error de "Eres menor de edad"
-    private val _errorEdad = MutableStateFlow(false)
-    val errorEdad: StateFlow<Boolean> = _errorEdad
+    // Guardamos la edad calculada para validaciones
+    private val _edadActual = MutableStateFlow(-1)
+    val edadActual: StateFlow<Int> = _edadActual
 
-    fun onEdadChanged(nuevaEdad: String) {
-        // Solo permitimos números y máximo 3 dígitos (por si vive 100 años jaja)
-        if (nuevaEdad.all { it.isDigit() } && nuevaEdad.length <= 3) {
-            _edad.value = nuevaEdad
-            _errorEdad.value = false // Limpiamos el error mientras escribe
-        }
+    fun actualizarFecha(fecha: String, edad: Int) {
+        _fechaParaDB.value = fecha
+        _edadActual.value = edad
     }
 
-    fun esMayorDeEdad(): Boolean {
-        val edadInt = _edad.value.toIntOrNull() ?: 0
-        val esMayor = edadInt >= 18
-
-        if (!esMayor) {
-            _errorEdad.value = true
-        }
-
-        return esMayor
-    }
+    fun esMayorDeEdad(): Boolean = _edadActual.value >= 18
 }

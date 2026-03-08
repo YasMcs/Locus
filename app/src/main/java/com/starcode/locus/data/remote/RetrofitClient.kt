@@ -9,7 +9,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 
 object RetrofitClient {
 
-    private const val BASE_URL = "http://192.168.1.167:8080/"
+    private const val BASE_URL = "https://locus-api-production.up.railway.app/"
 
     private var appContext: Context? = null
 

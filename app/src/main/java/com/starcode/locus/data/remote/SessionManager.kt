@@ -17,4 +17,12 @@ class SessionManager(context: Context) {
     fun borrarToken() {
         prefs.edit().remove("auth_token").apply()
     }
+    // Dentro de tu clase SessionManager
+    fun guardarEdadValidada(esMayor: Boolean) {
+        prefs.edit().putBoolean("edad_validada", esMayor).apply()
+    }
+
+    fun esEdadValidada(): Boolean {
+        return prefs.getBoolean("edad_validada", false)
+    }
 }

@@ -5,9 +5,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AdsClick
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -23,8 +25,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.starcode.locus.R
 
+
 @Composable
-fun WelcomeScreen(onNavigateToLogin: () -> Unit) {
+fun WelcomeScreen(
+    onNavigateToLogin: () -> Unit,
+    onNavigateToRegistro: () -> Unit // Nuevo parámetro
+) {
     // Definición de colores según tu diseño
     val LocusDeepPurple = Color(0xFF1D1B20)
     val LocusActionOrange = Color(0xFFE6673D)
@@ -35,43 +41,41 @@ fun WelcomeScreen(onNavigateToLogin: () -> Unit) {
             .fillMaxSize()
             .background(LocusBackground)
     ) {
-        // 1. Imagen de fondo (ocupa la parte superior)
+        // 1. Imagen de fondo
         Image(
             painter = painterResource(id = R.drawable.locus_illustration),
             contentDescription = null,
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.7f) // Un poco más alta para que el degradado tenga espacio
+                .fillMaxHeight(0.7f)
                 .align(Alignment.TopCenter),
             contentScale = ContentScale.Crop
         )
 
-        // 2. Capa de Degradado (El "Fading Edge")
-        // Este Box crea la transición suave de transparente a beige
+        // 2. Capa de Degradado
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.5f) // Cubre la zona media de la pantalla
+                .fillMaxHeight(0.5f)
                 .align(Alignment.Center)
                 .background(
                     brush = Brush.verticalGradient(
                         colors = listOf(
                             Color.Transparent,
-                            LocusBackground.copy(alpha = 0.6f), // Desvanecimiento intermedio
-                            LocusBackground // Beige sólido al final
+                            LocusBackground.copy(alpha = 0.6f),
+                            LocusBackground
                         )
                     )
                 )
         )
 
-        // 3. Contenido Principal (Textos y Tarjetas)
+        // 3. Contenido Principal
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Spacer con weight para empujar el contenido hacia el final del degradado
             Spacer(modifier = Modifier.weight(0.9f))
 
             // Título y Eslogan
@@ -86,7 +90,7 @@ fun WelcomeScreen(onNavigateToLogin: () -> Unit) {
             )
 
             Text(
-                text = "Cultura al instante. Apunta, descubre, aprende.",
+                text = "Cultura al instante. camina, descubre y aprende.",
                 modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                 style = MaterialTheme.typography.bodyLarge.copy(
                     color = Color.Gray,
@@ -94,7 +98,7 @@ fun WelcomeScreen(onNavigateToLogin: () -> Unit) {
                 )
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
             // Fila de tarjetas (Feature Cards)
             Row(
@@ -102,8 +106,8 @@ fun WelcomeScreen(onNavigateToLogin: () -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 FeatureCard(
-                    icon = Icons.Default.CameraAlt,
-                    text = "Escanea\nmonumentos",
+                    icon = Icons.Default.NotificationsActive,
+                    text = "Recibe\nalertas",
                     backgroundColor = Color.White,
                     iconColor = LocusActionOrange
                 )
@@ -121,14 +125,14 @@ fun WelcomeScreen(onNavigateToLogin: () -> Unit) {
                 )
             }
 
-            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
-            // Botón de acción naranja
+            // --- BOTÓN PRINCIPAL (Registro + Edad) ---
             Button(
-                onClick = onNavigateToLogin,
+                onClick = onNavigateToRegistro,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(60.dp),
+                    .height(56.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = LocusActionOrange)
             ) {
@@ -141,7 +145,27 @@ fun WelcomeScreen(onNavigateToLogin: () -> Unit) {
                 )
             }
 
-            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // --- BOTÓN SECUNDARIO (Login Directo) ---
+            OutlinedButton(
+                onClick = onNavigateToLogin,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                shape = RoundedCornerShape(16.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, LocusActionOrange),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = LocusActionOrange)
+            ) {
+                Text(
+                    text = "Ya tengo una cuenta",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.SemiBold
+                    )
+                )
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }

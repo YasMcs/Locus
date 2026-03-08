@@ -1,6 +1,7 @@
 package com.starcode.locus.ui.navigation
 
 import android.app.Application
+import android.util.Log
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModel
@@ -14,21 +15,24 @@ import com.starcode.locus.data.remote.SessionManager
 import com.starcode.locus.ui.screens.*
 import com.starcode.locus.ui.viewmodels.AuthViewModel
 import com.starcode.locus.ui.viewmodels.AuthResult
+import com.starcode.locus.ui.viewmodels.EdadViewModel
 import com.starcode.locus.ui.viewmodels.MapaViewModel
 
 @Composable
 fun NavGraph(navController: NavHostController, dao: LocusDao) {
     val context = LocalContext.current
     val application = context.applicationContext as Application
-
-    // 1. LÓGICA DE AUTO-LOGIN: Verificamos si ya hay un token guardado
     val sessionManager = remember { SessionManager(application) }
+
     val estaLogueado = sessionManager.obtenerToken() != null
+    val edadYaValidada = sessionManager.esEdadValidada()
 
-    // Si hay token, empezamos en "mapa"; si no, en "welcome"
-    val startDest = if (estaLogueado) "mapa" else "welcome"
+    val startDest = when {
+        estaLogueado -> "mapa"
+        edadYaValidada -> "registro"
+        else -> "welcome"
+    }
 
-    // 2. Instanciamos AuthViewModel
     val authViewModel: AuthViewModel = viewModel(
         factory = object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -37,72 +41,94 @@ fun NavGraph(navController: NavHostController, dao: LocusDao) {
         }
     )
 
+    val edadViewModel: EdadViewModel = viewModel()
     val authState by authViewModel.authState.collectAsState()
 
     NavHost(navController = navController, startDestination = startDest) {
 
         composable("welcome") {
-            WelcomeScreen(onNavigateToLogin = { navController.navigate("login") })
+            WelcomeScreen(
+                onNavigateToLogin = { navController.navigate("login") },
+                onNavigateToRegistro = { navController.navigate("validar_edad") }
+            )
         }
 
-        composable("registro") {
+        composable("validar_edad") {
+            EdadScreen(
+                viewModel = edadViewModel,
+                onEdadValida = {
+                    sessionManager.guardarEdadValidada(true)
+                    navController.navigate("registro") {
+                        popUpTo("welcome") { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        composable(route = "registro") {
+            val fechaParaDB by edadViewModel.fechaParaDB.collectAsState()
+            val authState by authViewModel.authState.collectAsState()
+
             RegistroScreen(
-                onRegistrar = { nombre, email, pass ->
-                    authViewModel.registrar(nombre, "", email, pass)
+                onRegistrar = { nom, pat, mat, _, mail, pw ->
+                    authViewModel.registrarUsuario(nom, pat, mat, fechaParaDB, mail, pw)
                 },
-                onIrALogin = { navController.navigate("login") }
+                onIrALogin = { navController.navigate("login") },
+                authState = authState,
+                fechaValidada = fechaParaDB
             )
 
             LaunchedEffect(authState) {
                 if (authState is AuthResult.Success) {
-                    navController.navigate("login")
+                    navController.navigate("mapa") {
+                        popUpTo("registro") { inclusive = true }
+                    }
+                    authViewModel.resetAuthState()
                 }
             }
         }
 
         composable("login") {
             LoginScreen(
-                onLogin = { email, pass ->
-                    authViewModel.login(email, pass)
-                },
-                onIrARegistrar = { navController.navigate("registro") }
+                onLogin = { email, pass -> authViewModel.login(email, pass) },
+                onIrARegistrar = { navController.navigate("validar_edad") },
+                authState = authState
             )
 
             LaunchedEffect(authState) {
                 if (authState is AuthResult.Success) {
+                    Log.d("LocusDebug", "✅ Login Exitoso detectado en NavGraph")
                     navController.navigate("mapa") {
                         popUpTo("login") { inclusive = true }
-                        popUpTo("welcome") { inclusive = true }
+                        launchSingleTop = true
                     }
+                    authViewModel.resetAuthState()
                 }
             }
         }
 
         composable("mapa") {
+            SideEffect { Log.d("LocusDebug", "🚀 [NAVGRAPH] Cargando ruta MAPA") }
             val mapaViewModel: MapaViewModel = viewModel(
                 factory = object : ViewModelProvider.Factory {
                     override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                        return MapaViewModel(dao) as T
+                        return MapaViewModel(application, dao) as T
                     }
                 }
             )
-
-            // Pasamos la navegación hacia el perfil
             MapaScreen(
                 viewModel = mapaViewModel,
                 onNavigateToPerfil = { navController.navigate("perfil") }
             )
         }
 
-        // 3. NUEVA RUTA: Perfil / Opciones
         composable("perfil") {
             PerfilScreen(
                 onBack = { navController.popBackStack() },
                 onLogout = {
                     authViewModel.cerrarSesion()
                     navController.navigate("welcome") {
-                        // Limpiamos todo el historial para que no pueda volver al mapa
-                        popUpTo(0) { inclusive = true }
+                        popUpTo(navController.graph.id) { inclusive = true }
                     }
                 }
             )

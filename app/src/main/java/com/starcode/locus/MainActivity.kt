@@ -16,6 +16,7 @@ import androidx.compose.ui.platform.LocalContext
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        RetrofitClient.init(this)
         super.onCreate(savedInstanceState)
 
         // ✅ PRIMERO QUE TODO: inicializar RetrofitClient con el contexto

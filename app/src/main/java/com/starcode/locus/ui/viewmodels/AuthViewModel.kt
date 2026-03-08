@@ -14,31 +14,33 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 
-// Cambiamos a AndroidViewModel para tener acceso a 'application'
+// ✅ 1. AuthResult FUERA de la clase para que sea visible en NavGraph y Screens
+sealed class AuthResult {
+    object Idle : AuthResult()
+    object Loading : AuthResult()
+    data class Success(val token: String) : AuthResult()
+    data class Error(val message: String) : AuthResult()
+}
+
 class AuthViewModel(application: Application, private val dao: LocusDao) : AndroidViewModel(application) {
 
     private val _authState = MutableStateFlow<AuthResult>(AuthResult.Idle)
     val authState: StateFlow<AuthResult> = _authState
 
-    // Inicializamos el SessionManager
     private val sessionManager = SessionManager(application)
 
+    // --- FUNCIÓN DE LOGIN ---
     fun login(email: String, password: String) {
         if (email.isBlank() || password.isBlank()) {
             _authState.value = AuthResult.Error("Por favor, llena todos los campos")
             return
         }
-
         viewModelScope.launch {
             _authState.value = AuthResult.Loading
             try {
                 val response = RetrofitClient.instance.login(LoginRequest(email, password))
-
                 if (!response.token.isNullOrBlank()) {
-                    // 1. PERSISTENCIA DINÁMICA: Guardamos el JWT en SharedPreferences
                     sessionManager.guardarToken(response.token)
-
-                    // 2. PERSISTENCIA LOCAL: Guardamos los datos del usuario en Room
                     val user = response.usuario
                     dao.insertarUsuarios(listOf(
                         UsuarioEntity(
@@ -50,60 +52,56 @@ class AuthViewModel(application: Application, private val dao: LocusDao) : Andro
                             password = ""
                         )
                     ))
-
                     _authState.value = AuthResult.Success(response.token)
-                } else {
-                    _authState.value = AuthResult.Error("El servidor no devolvió un token válido")
                 }
-
-            } catch (e: HttpException) {
-                val errorMsg = when(e.code()) {
-                    401 -> "Correo o contraseña incorrectos"
-                    404 -> "Servidor no encontrado"
-                    else -> "Error: ${e.message()}"
-                }
-                _authState.value = AuthResult.Error(errorMsg)
             } catch (e: Exception) {
                 _authState.value = AuthResult.Error("Error de red: Revisa tu conexión")
             }
         }
     }
-    fun cerrarSesion() {
-        viewModelScope.launch {
-            sessionManager.borrarToken()
-            // Opcional: limpiar la base de datos de Room si quieres privacidad total
-            dao.borrarTodosLosLugares()
-            _authState.value = AuthResult.Idle // Reiniciar el estado
-        }
-    }
-    fun registrar(nombre: String, apePa: String, email: String, pass: String) {
+
+    // --- ✅ 2. FUNCIÓN DE REGISTRO UNIFICADA ---
+    // Esta es la que NavGraph está buscando y no encontraba
+    fun registrarUsuario(
+        nombre: String,
+        paterno: String,
+        materno: String,
+        fecha: String,
+        email: String,
+        pass: String
+    ) {
         viewModelScope.launch {
             _authState.value = AuthResult.Loading
             try {
                 val request = RegisterRequest(
                     nombre = nombre,
-                    ape_pa = apePa,
-                    ape_ma = null,
-                    fecha_nac = null,
+                    ape_pa = paterno,
+                    ape_ma = if (materno.isBlank()) null else materno,
+                    fecha_nac = if (fecha.isBlank() || fecha == "Fecha de Nacimiento") null else fecha,
                     email = email,
                     password = pass
                 )
-                val response = RetrofitClient.instance.registrarUsuario(request)
 
-                if (!response.token.isNullOrBlank()) {
+                val response = RetrofitClient.instance.registrarUsuario(request)
+                if (response.token.isNotEmpty()) {
                     sessionManager.guardarToken(response.token)
                     _authState.value = AuthResult.Success(response.token)
                 }
             } catch (e: Exception) {
-                _authState.value = AuthResult.Error("Error en el registro: ${e.message}")
+                _authState.value = AuthResult.Error(e.localizedMessage ?: "Error en Railway")
             }
         }
     }
-}
 
-sealed class AuthResult {
-    object Idle : AuthResult()
-    object Loading : AuthResult()
-    data class Success(val token: String) : AuthResult()
-    data class Error(val message: String) : AuthResult()
+    fun cerrarSesion() {
+        viewModelScope.launch {
+            sessionManager.borrarToken()
+            dao.borrarTodosLosLugares()
+            _authState.value = AuthResult.Idle
+        }
+    }
+
+    fun resetAuthState() {
+        _authState.value = AuthResult.Idle
+    }
 }
