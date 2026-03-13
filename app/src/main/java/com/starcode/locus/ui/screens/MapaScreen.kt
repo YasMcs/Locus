@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.airbnb.lottie.compose.*
@@ -76,12 +77,21 @@ fun MapaScreen(
     val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.doggy))
     val progress by animateLottieCompositionAsState(composition, iterations = LottieConstants.IterateForever)
 
-    // Lanzadores de Cámara y Galería
-    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) {
-        if (it != null) Log.d("Locus", "Foto capturada")
+    // --- LANZADORES PARA RECUERDOS (Update) ---
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicturePreview()
+    ) { bitmap: Bitmap? ->
+        if (bitmap != null) {
+            scope.launch { Log.d("Locus", "Captura de cámara lista") }
+        }
     }
-    val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) {
-        if (it != null) Log.d("Locus", "Galería seleccionada")
+
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: android.net.Uri? ->
+        if (uri != null) {
+            scope.launch { Log.d("Locus", "Imagen de galería seleccionada") }
+        }
     }
 
     remember {
@@ -139,15 +149,38 @@ fun MapaScreen(
 
     LaunchedEffect(Unit) { viewModel.cargarLugares() }
 
+    LaunchedEffect(locationOverlay.myLocation) {
+        locationOverlay.myLocation?.let { geoPoint ->
+            withContext(Dispatchers.IO) {
+                try {
+                    val direcciones = geocoder.getFromLocation(geoPoint.latitude, geoPoint.longitude, 1)
+                    if (!direcciones.isNullOrEmpty()) {
+                        val municipio = direcciones[0].locality ?: direcciones[0].subAdminArea ?: "Explorando"
+                        val estado = direcciones[0].adminArea ?: ""
+                        nombreUbicacion = "$municipio, $estado"
+                    }
+                } catch (e: Exception) { Log.e("kora", "GeoError: ${e.message}") }
+            }
+        }
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) { mapView.onResume(); locationOverlay.enableMyLocation() }
+            else if (event == Lifecycle.Event.ON_PAUSE) { locationOverlay.disableMyLocation(); mapView.onPause() }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         AndroidView(
             factory = {
                 mapView.apply {
                     setTileSource(TileSourceFactory.MAPNIK)
                     setMultiTouchControls(true)
-                    // --- AQUÍ ESTABA EL ERROR: AGREGUÉ ESTAS DOS LÍNEAS ---
+                    zoomController.setVisibility(org.osmdroid.views.CustomZoomButtonsController.Visibility.NEVER)
                     controller.setZoom(15.0)
-                    controller.setCenter(GeoPoint(16.75, -93.11)) // Un centro inicial (ej. Chiapas) para que no se vea el mundo repetido
                     overlays.add(locationOverlay)
                 }
             },
@@ -157,24 +190,29 @@ fun MapaScreen(
                 lugares.forEach { lugar ->
                     val marker = Marker(view).apply {
                         position = GeoPoint(lugar.latitud, lugar.longitud)
-                        icon = marcadorNativo; setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM); infoWindow = null
+                        icon = marcadorNativo
+                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                        infoWindow = null
                         setOnMarkerClickListener { _, _ ->
                             val userPos = locationOverlay.myLocation
                             val radioReal = lugar.radio_activacion ?: 100
                             if (userPos != null) {
                                 val results = FloatArray(1)
                                 android.location.Location.distanceBetween(userPos.latitude, userPos.longitude, lugar.latitud, lugar.longitud, results)
-                                if (results[0].toInt() <= radioReal) { lugarSeleccionado = lugar; showBottomSheet = true }
-                                else { scope.launch { snackbarHostState.showSnackbar("👣 Te faltan ${results[0].toInt() - radioReal}m para desbloquear.") } }
+                                if (results[0].toInt() <= radioReal) {
+                                    lugarSeleccionado = lugar; showBottomSheet = true
+                                } else {
+                                    scope.launch { snackbarHostState.showSnackbar("👣 Te faltan ${results[0].toInt() - radioReal}m para desbloquear.") }
+                                }
                             } else { lugarSeleccionado = lugar; showBottomSheet = true }
                             true
                         }
-                    }; view.overlays.add(marker)
+                    }
+                    view.overlays.add(marker)
                 }; view.invalidate()
             }
         )
 
-        // Header
         Surface(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 45.dp).align(Alignment.TopCenter),
             shape = RoundedCornerShape(30.dp), color = LocusSurfaceWhite, shadowElevation = 10.dp
@@ -190,27 +228,63 @@ fun MapaScreen(
             }
         }
 
-        // Botones flotantes (MyLocation y Menú) se mantienen...
         FloatingActionButton(
             onClick = { locationOverlay.myLocation?.let { mapView.controller.animateTo(it) } },
             modifier = Modifier.align(Alignment.CenterEnd).padding(end = 16.dp),
             containerColor = LocusSurfaceWhite, contentColor = LocusActionOrange, shape = RoundedCornerShape(16.dp)
         ) { Icon(Icons.Default.MyLocation, null) }
 
-        Column(modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 32.dp, end = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 32.dp, end = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             Box(contentAlignment = Alignment.BottomCenter) {
-                Column(modifier = Modifier.offset(y = animY).alpha(alphaAnim), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    FloatingActionButton(onClick = {}, modifier = Modifier.size(56.dp), containerColor = LocusSurfaceWhite, contentColor = LocusActionOrange, shape = CircleShape) { Icon(Icons.Default.Favorite, null) }
-                    FloatingActionButton(onClick = {}, modifier = Modifier.size(56.dp), containerColor = LocusSurfaceWhite, contentColor = LocusActionOrange, shape = CircleShape) { Icon(Icons.Default.History, null) }
+                Column(
+                    modifier = Modifier.offset(y = animY).alpha(alphaAnim),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    FloatingActionButton(
+                        onClick = { menuExpandido = false },
+                        modifier = Modifier.size(56.dp),
+                        containerColor = LocusSurfaceWhite, contentColor = LocusActionOrange, shape = CircleShape
+                    ) { Icon(Icons.Default.Favorite, null) }
+
+                    FloatingActionButton(
+                        onClick = { menuExpandido = false },
+                        modifier = Modifier.size(56.dp),
+                        containerColor = LocusSurfaceWhite, contentColor = LocusActionOrange, shape = CircleShape
+                    ) { Icon(Icons.Default.History, null) }
+
                     Spacer(modifier = Modifier.height(68.dp))
                 }
-                FloatingActionButton(onClick = { menuExpandido = !menuExpandido }, modifier = Modifier.size(56.dp), containerColor = if (menuExpandido) LocusActionOrange else LocusSurfaceWhite, contentColor = if (menuExpandido) Color.White else LocusDeepPurple, shape = CircleShape) {
-                    Icon(if (menuExpandido) Icons.Default.Close else Icons.Default.Menu, null, modifier = Modifier.rotate(if (menuExpandido) 90f else 0f))
+
+                FloatingActionButton(
+                    onClick = { menuExpandido = !menuExpandido },
+                    modifier = Modifier.size(56.dp),
+                    containerColor = if (menuExpandido) LocusActionOrange else LocusSurfaceWhite,
+                    contentColor = if (menuExpandido) Color.White else LocusDeepPurple,
+                    shape = CircleShape
+                ) {
+                    Icon(
+                        imageVector = if (menuExpandido) Icons.Default.Close else Icons.Default.Menu,
+                        contentDescription = null,
+                        modifier = Modifier.rotate(if (menuExpandido) 90f else 0f)
+                    )
                 }
             }
         }
 
-        // --- FICHA PROFESIONAL: CORAZÓN ARRIBA, BOTÓN ANCHO ABAJO ---
+        if (cargando) {
+            Box(modifier = Modifier.fillMaxSize().background(LocusBackground.copy(alpha = 0.8f)), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    LottieAnimation(composition = composition, progress = { progress }, modifier = Modifier.size(180.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Buscando historias...", color = LocusDeepPurple, fontWeight = FontWeight.Medium, fontSize = 16.sp)
+                }
+            }
+        }
+
+        // --- FICHA ACTUALIZADA (BOTTOM SHEET) ---
         if (showBottomSheet && lugarSeleccionado != null) {
             ModalBottomSheet(
                 onDismissRequest = { showBottomSheet = false },
@@ -219,76 +293,76 @@ fun MapaScreen(
                 dragHandle = { BottomSheetDefaults.DragHandle(color = LocusActionOrange) }
             ) {
                 Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 50.dp)) {
+                    Text(lugarSeleccionado?.titulo_ficha ?: "Lugar", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
+                    Spacer(Modifier.height(12.dp))
+                    Text(lugarSeleccionado?.descripcion_hist ?: "", style = MaterialTheme.typography.bodyLarge, lineHeight = 24.sp)
+
+                    Spacer(Modifier.height(24.dp))
+
+                    // SECCIÓN DE ACCIONES (Favoritos y Recuerdos)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text(
-                            lugarSeleccionado?.titulo_ficha ?: "Lugar",
+                        // Botón Favoritos (Diseño listo)
+                        OutlinedButton(
+                            onClick = { /* Pendiente API */ },
                             modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = LocusDeepPurple
-                        )
-                        IconButton(onClick = { /* API Favoritos */ }) {
-                            Icon(Icons.Default.FavoriteBorder, null, tint = LocusActionOrange)
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = LocusActionOrange),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, LocusActionOrange)
+                        ) {
+                            Icon(Icons.Default.FavoriteBorder, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Favorito")
+                        }
+
+                        // Botón Recuerdo (Con diálogo de selección)
+                        var showRecuerdoOptions by remember { mutableStateOf(false) }
+
+                        Button(
+                            onClick = { showRecuerdoOptions = true },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = LocusActionOrange)
+                        ) {
+                            Icon(Icons.Default.AddAPhoto, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Recuerdo")
+                        }
+
+                        if (showRecuerdoOptions) {
+                            AlertDialog(
+                                onDismissRequest = { showRecuerdoOptions = false },
+                                title = { Text("Añadir Recuerdo") },
+                                text = { Text("Elige cómo quieres capturar este momento:") },
+                                confirmButton = {
+                                    TextButton(onClick = { cameraLauncher.launch(null); showRecuerdoOptions = false }) {
+                                        Text("Cámara")
+                                    }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { galleryLauncher.launch("image/*"); showRecuerdoOptions = false }) {
+                                        Text("Galería")
+                                    }
+                                }
+                            )
                         }
                     }
 
-                    Spacer(Modifier.height(12.dp))
-                    Text(lugarSeleccionado?.descripcion_hist ?: "", style = MaterialTheme.typography.bodyLarge, lineHeight = 24.sp, color = LocusDeepPurple.copy(alpha = 0.8f))
-
                     Spacer(Modifier.height(24.dp))
 
-                    Surface(color = LocusActionOrange.copy(alpha = 0.05f), shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) {
+                    // DATO CURIOSO
+                    Surface(color = LocusActionOrange.copy(alpha = 0.1f), shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) {
                         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text("💡", fontSize = 22.sp); Spacer(Modifier.width(12.dp))
-                            Text(lugarSeleccionado?.dato_curioso ?: "", style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic, color = LocusDeepPurple.copy(alpha = 0.8f))
+                            Text("💡", fontSize = 24.sp); Spacer(Modifier.width(16.dp))
+                            Text(lugarSeleccionado?.dato_curioso ?: "", style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic)
                         }
-                    }
-
-                    Spacer(Modifier.height(24.dp))
-
-                    var showOptions by remember { mutableStateOf(false) }
-                    Button(
-                        onClick = { showOptions = true },
-                        modifier = Modifier.fillMaxWidth().height(56.dp),
-                        shape = RoundedCornerShape(18.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = LocusActionOrange)
-                    ) {
-                        Icon(Icons.Default.AddAPhoto, null, tint=Color.White)
-                        Spacer(Modifier.width(10.dp))
-                        Text("Añadir Recuerdo", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                    }
-
-                    if (showOptions) {
-                        AlertDialog(
-                            onDismissRequest = { showOptions = false },
-                            containerColor = LocusSurfaceWhite,
-                            title = { Text("Nuevo Recuerdo", fontWeight = FontWeight.Bold) },
-                            text = { Text("¿Cómo quieres guardar este momento?") },
-                            confirmButton = {
-                                Button(onClick = { cameraLauncher.launch(null); showOptions = false }, colors = ButtonDefaults.buttonColors(containerColor = LocusActionOrange)) {
-                                    Text("Cámara")
-                                }
-                            },
-                            dismissButton = {
-                                TextButton(onClick = { galleryLauncher.launch("image/*"); showOptions = false }) {
-                                    Text("Galería")
-                                }
-                            }
-                        )
                     }
                 }
             }
         }
 
-        if (cargando) {
-            Box(modifier = Modifier.fillMaxSize().background(LocusBackground.copy(alpha = 0.8f)), contentAlignment = Alignment.Center) {
-                LottieAnimation(composition = composition, progress = { progress }, modifier = Modifier.size(180.dp))
-            }
-        }
         SnackbarHost(hostState = snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 32.dp))
     }
 }
