@@ -2,6 +2,7 @@ package com.starcode.locus.data.dao
 
 import androidx.room.*
 import com.starcode.locus.data.entities.*
+import kotlinx.coroutines.flow.Flow
 
 
 @Dao
@@ -43,5 +44,10 @@ interface LocusDao {
 
     @Query("DELETE FROM lugares")
     suspend fun borrarTodosLosLugares()
+    @Query("SELECT * FROM usuarios LIMIT 1")
+    fun obtenerUsuarioFlow(): Flow<UsuarioEntity?>
+
+    @Query("DELETE FROM usuarios")
+    suspend fun borrarTodosLosUsuarios()
 
 }

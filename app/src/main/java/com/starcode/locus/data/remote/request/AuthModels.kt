@@ -12,6 +12,7 @@ data class UsuarioResponse(
     val ape_ma: String?,
     val fecha_nac: String?,
     val email: String,
+    val genero: String?,
     val fecha_registro: String?
 )
 
@@ -21,7 +22,8 @@ data class RegisterRequest(
     val ape_ma: String? = null,
     val fecha_nac: String? = null,
     val email: String,
-    val password: String
+    val password: String,
+    val genero: String? = null
 )
 
 data class LoginRequest(

@@ -4,9 +4,9 @@ import android.content.Context
 import android.content.SharedPreferences
 
 class SessionManager(context: Context) {
-    private val prefs: SharedPreferences =
-        context.getSharedPreferences("locus_prefs", Context.MODE_PRIVATE)
+    private val prefs: SharedPreferences = context.getSharedPreferences("locus_prefs", Context.MODE_PRIVATE)
 
+    // --- SEGURIDAD Y IDENTIDAD ---
     fun guardarToken(token: String) {
         prefs.edit().putString("auth_token", token).apply()
     }
@@ -14,15 +14,26 @@ class SessionManager(context: Context) {
     fun obtenerToken(): String? {
         return prefs.getString("auth_token", null)
     }
-    fun borrarToken() {
-        prefs.edit().remove("auth_token").apply()
+
+    fun guardarUserId(id: Int) {
+        prefs.edit().putInt("user_id", id).apply()
     }
-    // Dentro de tu clase SessionManager
+
+    fun getUserId(): Int {
+        return prefs.getInt("user_id", -1)
+    }
+
+    // --- FLUJO DE USUARIO (LO QUE FALTABA) ---
     fun guardarEdadValidada(esMayor: Boolean) {
         prefs.edit().putBoolean("edad_validada", esMayor).apply()
     }
 
     fun esEdadValidada(): Boolean {
         return prefs.getBoolean("edad_validada", false)
+    }
+
+    // --- LIMPIEZA ---
+    fun borrarToken() {
+        prefs.edit().clear().apply()
     }
 }

@@ -80,7 +80,7 @@ fun WelcomeScreen(
 
             // Título y Eslogan
             Text(
-                text = "Locus",
+                text = "Kora",
                 modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.displayMedium.copy(
                     fontWeight = FontWeight.ExtraBold,

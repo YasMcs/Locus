@@ -1,5 +1,6 @@
 package com.starcode.locus.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -10,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -56,14 +58,16 @@ fun RegistroScreen(
     ) {
         Spacer(modifier = Modifier.height(48.dp))
 
-        Text(
-            text = "Locus",
-            style = MaterialTheme.typography.displayMedium.copy(
-                fontWeight = FontWeight.ExtraBold,
-                color = LocusDeepPurple,
-                letterSpacing = (-2).sp
-            )
+        // Reemplaza el Text(text = "Kora"...) por esto:
+        Image(
+            painter = painterResource(id = com.starcode.locus.R.drawable.logoko),
+            contentDescription = "Logo Kora",
+            modifier = Modifier
+                .size(200.dp) // Ajusta el tamaño aquí (120dp es un buen estándar)
+                .padding(bottom = 8.dp),
+            alignment = Alignment.Center
         )
+
         Text(text = "Crea tu perfil", color = Color.Gray)
 
         Spacer(modifier = Modifier.height(40.dp))

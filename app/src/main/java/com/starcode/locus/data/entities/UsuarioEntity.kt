@@ -12,5 +12,6 @@ data class UsuarioEntity(
     val ape_ma: String?, // Nuleable como en tu back
     val email: String,
     val password: String, // Solo la guardamos localmente si necesitas persistir la sesión
-    val fecha_nac: String? = null
+    val fecha_nac: String? = null,
+    val genero: String? = null
 )

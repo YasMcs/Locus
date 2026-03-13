@@ -122,16 +122,18 @@ fun NavGraph(navController: NavHostController, dao: LocusDao) {
             )
         }
 
+        // En NavGraph.kt (Línea 128 aprox)
         composable("perfil") {
             PerfilScreen(
-                onBack = { navController.popBackStack() },
-                onLogout = {
-                    authViewModel.cerrarSesion()
-                    navController.navigate("welcome") {
-                        popUpTo(navController.graph.id) { inclusive = true }
+                authViewModel = authViewModel,
+                onNavigateBack = { navController.popBackStack() },
+                onLogoutNavigation = { // 👈 Cambia 'onLogout' por 'onLogoutNavigation'
+                    navController.navigate("login") {
+                        popUpTo("home") { inclusive = true }
                     }
                 }
             )
         }
+
+        }
     }
-}

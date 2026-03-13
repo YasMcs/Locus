@@ -2,14 +2,14 @@ package com.starcode.locus.data.remote
 
 import com.starcode.locus.data.entities.LugarEntity
 import com.starcode.locus.data.entities.CategoriaEntity
-import com.starcode.locus.data.remote.request.AuthResponse
-import com.starcode.locus.data.remote.request.LoginRequest
-import com.starcode.locus.data.remote.request.RegisterRequest
+import com.starcode.locus.data.remote.request.*
+import okhttp3.MultipartBody
+import retrofit2.Response
 import retrofit2.http.*
 
 interface LocusApiService {
 
-    // --- CATEGORÍAS (¡La pieza que faltaba!) ---
+    // --- CATEGORÍAS ---
     @GET("api/categorias")
     suspend fun obtenerCategorias(
         @Header("Authorization") token: String
@@ -27,32 +27,44 @@ interface LocusApiService {
         @Path("id") id: Int
     ): LugarEntity
 
-    @GET("api/lugares/cercanos")
-    suspend fun obtenerLugaresCercanos(
+    // --- IMÁGENES (Nuevas rutas para PostgreSQL) ---
+    @Multipart
+    @POST("api/imagenes/subir")
+    suspend fun subirImagen(
         @Header("Authorization") token: String,
-        @Query("lat") lat: Double,
-        @Query("lon") lon: Double,
-        @Query("radio") radio: Int
-    ): List<LugarEntity>
+        @Part imagen: MultipartBody.Part
+    ): ImagenResponse // Devuelve el ID generado por Kian
 
-    @POST("api/lugares")
-    suspend fun crearLugar(
-        @Header("Authorization") token: String,
-        @Body lugar: LugarEntity
-    ): LugarEntity
-
-    @PUT("api/lugares/{id}")
-    suspend fun actualizarLugar(
-        @Header("Authorization") token: String,
-        @Path("id") id: Int,
-        @Body lugar: LugarEntity
-    ): LugarEntity
-
-    @DELETE("api/lugares/{id}")
-    suspend fun eliminarLugar(
+    @GET("api/imagenes/usuario/{id}")
+    suspend fun obtenerImagenesUsuario(
         @Header("Authorization") token: String,
         @Path("id") id: Int
-    ): Unit
+    ): List<ImagenResponse>
+
+    @DELETE("api/imagenes/{id}")
+    suspend fun eliminarImagen(
+        @Header("Authorization") token: String,
+        @Path("id") id: Int
+    ): Response<Unit>
+
+    // --- RECUERDOS (Nuevas rutas para PostgreSQL) ---
+    @POST("api/recuerdos")
+    suspend fun crearRecuerdo(
+        @Header("Authorization") token: String,
+        @Body request: RecuerdoRequest
+    ): RecuerdoResponse
+
+    @GET("api/recuerdos/usuario/{id}")
+    suspend fun obtenerRecuerdosUsuario(
+        @Header("Authorization") token: String,
+        @Path("id") id: Int
+    ): List<RecuerdoResponse>
+
+    @DELETE("api/recuerdos/{id}")
+    suspend fun eliminarRecuerdo(
+        @Header("Authorization") token: String,
+        @Path("id") id: Int
+    ): Response<Unit>
 
     // --- AUTH ---
     @POST("auth/register")

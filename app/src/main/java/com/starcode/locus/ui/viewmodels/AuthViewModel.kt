@@ -10,11 +10,12 @@ import com.starcode.locus.data.remote.SessionManager
 import com.starcode.locus.data.remote.request.LoginRequest
 import com.starcode.locus.data.remote.request.RegisterRequest
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import retrofit2.HttpException
 
-// ✅ 1. AuthResult FUERA de la clase para que sea visible en NavGraph y Screens
+// Resultado de autenticación para la UI
 sealed class AuthResult {
     object Idle : AuthResult()
     object Loading : AuthResult()
@@ -27,12 +28,20 @@ class AuthViewModel(application: Application, private val dao: LocusDao) : Andro
     private val _authState = MutableStateFlow<AuthResult>(AuthResult.Idle)
     val authState: StateFlow<AuthResult> = _authState
 
+    // ✅ ESTO ARREGLA EL PERFIL: Observa al usuario de la DB en tiempo real
+    val usuarioLogueado: StateFlow<UsuarioEntity?> = dao.obtenerUsuarioFlow()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = null
+        )
+
     private val sessionManager = SessionManager(application)
 
-    // --- FUNCIÓN DE LOGIN ---
+    // --- LOGIN ---
     fun login(email: String, password: String) {
         if (email.isBlank() || password.isBlank()) {
-            _authState.value = AuthResult.Error("Por favor, llena todos los campos")
+            _authState.value = AuthResult.Error("Llena todos los campos")
             return
         }
         viewModelScope.launch {
@@ -41,7 +50,10 @@ class AuthViewModel(application: Application, private val dao: LocusDao) : Andro
                 val response = RetrofitClient.instance.login(LoginRequest(email, password))
                 if (!response.token.isNullOrBlank()) {
                     sessionManager.guardarToken(response.token)
+
                     val user = response.usuario
+
+                    // ✅ IMPORTANTE: Insertar con TODOS los campos de tu Entity
                     dao.insertarUsuarios(listOf(
                         UsuarioEntity(
                             id_usuario = user.id_usuario,
@@ -49,19 +61,20 @@ class AuthViewModel(application: Application, private val dao: LocusDao) : Andro
                             ape_pa = user.ape_pa,
                             ape_ma = user.ape_ma,
                             email = user.email,
-                            password = ""
+                            password = "", // No guardamos pass real por seguridad
+                            genero = user.genero, // 👈 Esto evita el error en Perfil
+                            fecha_nac = user.fecha_nac
                         )
                     ))
                     _authState.value = AuthResult.Success(response.token)
                 }
             } catch (e: Exception) {
-                _authState.value = AuthResult.Error("Error de red: Revisa tu conexión")
+                _authState.value = AuthResult.Error("Credenciales incorrectas o error de red")
             }
         }
     }
 
-    // --- ✅ 2. FUNCIÓN DE REGISTRO UNIFICADA ---
-    // Esta es la que NavGraph está buscando y no encontraba
+    // --- REGISTRO ---
     fun registrarUsuario(
         nombre: String,
         paterno: String,
@@ -88,14 +101,16 @@ class AuthViewModel(application: Application, private val dao: LocusDao) : Andro
                     _authState.value = AuthResult.Success(response.token)
                 }
             } catch (e: Exception) {
-                _authState.value = AuthResult.Error(e.localizedMessage ?: "Error en Railway")
+                _authState.value = AuthResult.Error(e.localizedMessage ?: "Error al registrar")
             }
         }
     }
 
+    // --- CERRAR SESIÓN ---
     fun cerrarSesion() {
         viewModelScope.launch {
             sessionManager.borrarToken()
+            dao.borrarTodosLosUsuarios() // ✅ Limpia la DB local para que el Perfil se vacíe
             dao.borrarTodosLosLugares()
             _authState.value = AuthResult.Idle
         }
