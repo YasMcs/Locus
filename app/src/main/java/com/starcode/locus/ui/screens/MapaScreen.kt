@@ -37,10 +37,14 @@ import androidx.lifecycle.LifecycleEventObserver
 import com.airbnb.lottie.compose.*
 import com.starcode.locus.R
 import com.starcode.locus.data.entities.LugarEntity
+import com.starcode.locus.data.remote.SessionManager
 import com.starcode.locus.ui.viewmodels.MapaViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
@@ -54,6 +58,7 @@ import java.util.Locale
 @Composable
 fun MapaScreen(
     viewModel: MapaViewModel,
+    sessionManager: SessionManager, // <--- AGREGA ESTO
     onNavigateToPerfil: () -> Unit
 ) {
     val context = LocalContext.current
@@ -78,14 +83,7 @@ fun MapaScreen(
     val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.doggy))
     val progress by animateLottieCompositionAsState(composition, iterations = LottieConstants.IterateForever)
 
-    // --- LANZADORES PARA RECUERDOS (Update) ---
-    val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicturePreview()
-    ) { bitmap: Bitmap? ->
-        if (bitmap != null) {
-            scope.launch { Log.d("Locus", "Captura de cámara lista") }
-        }
-    }
+
 
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -175,6 +173,52 @@ fun MapaScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    fun procesarNuevoRecuerdo(bitmap: Bitmap) {
+        val idLugar = lugarSeleccionado?.id_lugar ?: return
+        val idUsuario = sessionManager.getUserId()
+
+        scope.launch(Dispatchers.IO) {
+            try {
+                // Comprimir imagen
+                val stream = java.io.ByteArrayOutputStream()
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 80, stream)
+                val byteArray = stream.toByteArray()
+
+                val mediaType = "text/plain".toMediaTypeOrNull()
+
+                // 1. IDs (aseguramos que no tengan espacios ni caracteres raros)
+                val userIdBody = RequestBody.create(mediaType, idUsuario.toString().trim())
+                val lugarIdBody = RequestBody.create(mediaType, idLugar.toString().trim())
+
+                // 2. Imagen (Usamos "file" por compatibilidad universal)
+                val requestFile = RequestBody.create("image/jpeg".toMediaTypeOrNull(), byteArray)
+                val bodyImagen = MultipartBody.Part.createFormData(
+                    "file", // <--- Si esto sigue dando 500, pregunta al de backend el nombre exacto del campo
+                    "foto_${System.currentTimeMillis()}.jpg",
+                    requestFile
+                )
+
+                // 3. Envío
+                viewModel.subirImagenConDatos(
+                    userId = userIdBody,
+                    lugarId = lugarIdBody,
+                    imagenPart = bodyImagen,
+                    nota = "Aquí va el texto del recuerdo" // <-- Pasa la variable que contenga la nota
+                )
+
+            } catch (e: Exception) {
+                Log.e("LocusDebug", "Error: ${e.message}")
+            }
+        }
+    }
+    // 1. El lanzador que recibe la foto
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicturePreview()
+    ) { bitmap ->
+        if (bitmap != null) {
+            procesarNuevoRecuerdo(bitmap) // La función que creamos antes
+        }
+    }
     Box(modifier = Modifier.fillMaxSize()) {
 
 
@@ -289,6 +333,7 @@ fun MapaScreen(
         }
 
         // --- FICHA ACTUALIZADA (BOTTOM SHEET) ---
+        // --- FICHA ACTUALIZADA (REEMPLAZA DESDE AQUÍ) ---
         if (showBottomSheet && lugarSeleccionado != null) {
             ModalBottomSheet(
                 onDismissRequest = { showBottomSheet = false },
@@ -296,76 +341,101 @@ fun MapaScreen(
                 shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
                 dragHandle = { BottomSheetDefaults.DragHandle(color = LocusActionOrange) }
             ) {
-                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 50.dp)) {
-                    Text(lugarSeleccionado?.titulo_ficha ?: "Lugar", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
-                    Spacer(Modifier.height(12.dp))
-                    Text(lugarSeleccionado?.descripcion_hist ?: "", style = MaterialTheme.typography.bodyLarge, lineHeight = 24.sp)
-
-                    Spacer(Modifier.height(24.dp))
-
-                    // SECCIÓN DE ACCIONES (Favoritos y Recuerdos)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    // 1. BOTÓN FAVORITO (Esquina superior derecha)
+                    IconButton(
+                        onClick = { /* TODO: Implementar guardado en DB local o API */ },
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(end = 16.dp)
+                            .background(LocusActionOrange.copy(alpha = 0.1f), CircleShape)
                     ) {
-                        // Botón Favoritos (Diseño listo)
-                        OutlinedButton(
-                            onClick = { /* Pendiente API */ },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = LocusActionOrange),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, LocusActionOrange)
-                        ) {
-                            Icon(Icons.Default.FavoriteBorder, null)
-                            Spacer(Modifier.width(8.dp))
-                            Text("Favorito")
-                        }
-
-                        // Botón Recuerdo (Con diálogo de selección)
-                        var showRecuerdoOptions by remember { mutableStateOf(false) }
-
-                        Button(
-                            onClick = { showRecuerdoOptions = true },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = LocusActionOrange)
-                        ) {
-                            Icon(Icons.Default.AddAPhoto, null)
-                            Spacer(Modifier.width(8.dp))
-                            Text("Recuerdo")
-                        }
-
-                        if (showRecuerdoOptions) {
-                            AlertDialog(
-                                onDismissRequest = { showRecuerdoOptions = false },
-                                title = { Text("Añadir Recuerdo") },
-                                text = { Text("Elige cómo quieres capturar este momento:") },
-                                confirmButton = {
-                                    TextButton(onClick = { cameraLauncher.launch(null); showRecuerdoOptions = false }) {
-                                        Text("Cámara")
-                                    }
-                                },
-                                dismissButton = {
-                                    TextButton(onClick = { galleryLauncher.launch("image/*"); showRecuerdoOptions = false }) {
-                                        Text("Galería")
-                                    }
-                                }
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Default.FavoriteBorder,
+                            contentDescription = "Favorito",
+                            tint = LocusActionOrange
+                        )
                     }
 
-                    Spacer(Modifier.height(24.dp))
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp)
+                            .padding(bottom = 40.dp)
+                    ) {
+                        // 2. TÍTULO (Con espacio para el corazón)
+                        Text(
+                            text = lugarSeleccionado?.titulo_ficha ?: "Lugar",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.ExtraBold,
+                            modifier = Modifier.padding(end = 48.dp)
+                        )
 
-                    // DATO CURIOSO
-                    Surface(color = LocusActionOrange.copy(alpha = 0.1f), shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) {
-                        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text("💡", fontSize = 24.sp); Spacer(Modifier.width(16.dp))
-                            Text(lugarSeleccionado?.dato_curioso ?: "", style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic)
+                        Spacer(Modifier.height(12.dp))
+
+                        // 3. DESCRIPCIÓN
+                        Text(
+                            text = lugarSeleccionado?.descripcion_hist ?: "",
+                            style = MaterialTheme.typography.bodyLarge,
+                            lineHeight = 24.sp,
+                            color = LocusDeepPurple.copy(alpha = 0.8f)
+                        )
+
+                        Spacer(Modifier.height(24.dp))
+
+                        // 4. SECCIÓN DATO CURIOSO
+                        Surface(
+                            color = LocusActionOrange.copy(alpha = 0.08f),
+                            shape = RoundedCornerShape(20.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, LocusActionOrange.copy(alpha = 0.2f))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("💡", fontSize = 22.sp)
+                                Spacer(Modifier.width(12.dp))
+                                Column {
+                                    Text(
+                                        "Dato Curioso",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp,
+                                        color = LocusActionOrange
+                                    )
+                                    Text(
+                                        text = lugarSeleccionado?.dato_curioso ?: "¡Explora para descubrir más!",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontStyle = FontStyle.Italic
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(32.dp))
+
+                        // 5. BOTÓN CAPTURAR RECUERDO
+                        Button(
+                            onClick = {
+                                showBottomSheet = false // Cerramos ficha antes de abrir cámara
+                                cameraLauncher.launch(null)
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = LocusActionOrange),
+                            shape = RoundedCornerShape(16.dp),
+                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+                        ) {
+                            Icon(Icons.Default.AddAPhoto, contentDescription = null)
+                            Spacer(Modifier.width(12.dp))
+                            Text("Capturar Recuerdo", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         }
                     }
                 }
             }
         }
+        // --- HASTA AQUÍ ---
 
         SnackbarHost(hostState = snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 32.dp))
         Column(

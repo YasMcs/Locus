@@ -39,11 +39,9 @@ class AuthViewModel(application: Application, private val dao: LocusDao) : Andro
     private val sessionManager = SessionManager(application)
 
     // --- LOGIN ---
+    // --- LOGIN ---
     fun login(email: String, password: String) {
-        if (email.isBlank() || password.isBlank()) {
-            _authState.value = AuthResult.Error("Llena todos los campos")
-            return
-        }
+        // ... código anterior ...
         viewModelScope.launch {
             _authState.value = AuthResult.Loading
             try {
@@ -53,7 +51,10 @@ class AuthViewModel(application: Application, private val dao: LocusDao) : Andro
 
                     val user = response.usuario
 
-                    // ✅ IMPORTANTE: Insertar con TODOS los campos de tu Entity
+                    // ✅ ESTA ES LA LÍNEA QUE FALTABA:
+                    sessionManager.guardarUserId(user.id_usuario)
+
+                    // Guardar en la DB local (Room) para el perfil
                     dao.insertarUsuarios(listOf(
                         UsuarioEntity(
                             id_usuario = user.id_usuario,
@@ -61,8 +62,8 @@ class AuthViewModel(application: Application, private val dao: LocusDao) : Andro
                             ape_pa = user.ape_pa,
                             ape_ma = user.ape_ma,
                             email = user.email,
-                            password = "", // No guardamos pass real por seguridad
-                            genero = user.genero, // 👈 Esto evita el error en Perfil
+                            password = "",
+                            genero = user.genero,
                             fecha_nac = user.fecha_nac
                         )
                     ))
@@ -95,9 +96,12 @@ class AuthViewModel(application: Application, private val dao: LocusDao) : Andro
                     password = pass
                 )
 
+                // Dentro de registrarUsuario
                 val response = RetrofitClient.instance.registrarUsuario(request)
                 if (response.token.isNotEmpty()) {
                     sessionManager.guardarToken(response.token)
+                    // ✅ OPCIONAL: Si el registro te devuelve el id_usuario, guárdalo aquí también
+                    // sessionManager.guardarUserId(response.usuario.id_usuario)
                     _authState.value = AuthResult.Success(response.token)
                 }
             } catch (e: Exception) {

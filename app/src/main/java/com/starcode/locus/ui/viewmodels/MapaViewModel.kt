@@ -16,6 +16,7 @@ import kotlinx.coroutines.launch
 import okhttp3.MultipartBody
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import okhttp3.RequestBody
 
 class MapaViewModel(application: Application, private val dao: LocusDao) : AndroidViewModel(application) {
 
@@ -73,30 +74,42 @@ class MapaViewModel(application: Application, private val dao: LocusDao) : Andro
     }
 
     // FUNCIÓN FINAL DE SUBIDA PARA POSTGRESQL
-    fun subirRecuerdoCompleto(lugarId: Int, imagenPart: MultipartBody.Part) {
+    fun subirImagenConDatos(userId: RequestBody, lugarId: RequestBody, imagenPart: MultipartBody.Part, nota: String) {
         viewModelScope.launch {
             _estaCargando.value = true
+            debugStep = "⏳ Paso 1: Subiendo imagen..."
+
             try {
-                val token = sessionManager.obtenerToken() ?: ""
-                val authHeader = "Bearer $token"
+                // --- PASO 1: SUBIR IMAGEN ---
+                val response = RetrofitClient.instance.subirImagen(
+                    idUsuario = userId,
+                    idLugar = lugarId,
+                    imagen = imagenPart
+                )
 
-                // 1. Subir imagen
-                val imagenResponse = RetrofitClient.instance.subirImagen(authHeader, imagenPart)
+                // Si llegamos aquí, ya tenemos el ID de la imagen
+                val idImagenRecienCreada = response.id_imagen
+                debugStep = "✅ Imagen OK. Paso 2: Guardando nota..."
 
-                if (imagenResponse != null) {
-                    // 2. Crear vínculo del recuerdo
-                    val recuerdoReq = RecuerdoRequest(
-                        usuario_id = sessionManager.getUserId(),
-                        lugar_id = lugarId,
-                        imagen_id = imagenResponse.id
-                    )
-                    RetrofitClient.instance.crearRecuerdo(authHeader, recuerdoReq)
-                }
+                // --- PASO 2: CREAR EL RECUERDO ---
+                // Aquí llamarías a la otra ruta que tu backend mencionó (/recuerdos)
+                // enviando el idImagenRecienCreada y la nota de texto.
+
+                // val resultadoRecuerdo = RetrofitClient.instance.crearRecuerdo(...)
+
+                debugStep = "🎉 ¡Todo guardado con éxito!"
+
+            } catch (e: retrofit2.HttpException) {
+                val codigo = e.code()
+                // SI DA 500 AQUÍ: Es que el servidor falló al intentar subir a Cloudinary
+                // o al escribir en la tabla de imágenes.
+                debugStep = "❌ Error Servidor ($codigo)"
+                Log.e("LocusDebug", "Detalle: ${e.response()?.errorBody()?.string()}")
             } catch (e: Exception) {
-                Log.e("LocusAPI", "Error subida: ${e.message}")
+                debugStep = "❌ Error: ${e.localizedMessage}"
             } finally {
                 _estaCargando.value = false
             }
         }
     }
-}
+    }

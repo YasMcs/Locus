@@ -118,6 +118,7 @@ fun NavGraph(navController: NavHostController, dao: LocusDao) {
             )
             MapaScreen(
                 viewModel = mapaViewModel,
+                sessionManager = sessionManager, // <--- PÁSALO AQUÍ
                 onNavigateToPerfil = { navController.navigate("perfil") }
             )
         }

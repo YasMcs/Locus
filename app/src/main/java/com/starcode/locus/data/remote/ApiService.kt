@@ -4,6 +4,7 @@ import com.starcode.locus.data.entities.LugarEntity
 import com.starcode.locus.data.entities.CategoriaEntity
 import com.starcode.locus.data.remote.request.*
 import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import retrofit2.Response
 import retrofit2.http.*
 
@@ -27,32 +28,34 @@ interface LocusApiService {
         @Path("id") id: Int
     ): LugarEntity
 
-    // --- IMÁGENES (Nuevas rutas para PostgreSQL) ---
+    // --- IMÁGENES (Nuevas rutas para PostgreSQL) --
+    // 1. Sube la imagen y recibe el ID (Paso 1 y 2)
     @Multipart
     @POST("api/imagenes/subir")
     suspend fun subirImagen(
-        @Header("Authorization") token: String,
+        @Part("id_usuario") idUsuario: RequestBody,
+        @Part("id_lugar") idLugar: RequestBody,
         @Part imagen: MultipartBody.Part
-    ): ImagenResponse // Devuelve el ID generado por Kian
+    ): ImagenResponse // Este objeto debe traer el id_imagen
 
-    @GET("api/imagenes/usuario/{id}")
+    // 2. Crea el recuerdo usando el id_imagen recibido (Paso 3)
+    @POST("api/recuerdos")
+    suspend fun crearRecuerdo(
+        @Body recuerdoRequest: RecuerdoRequest
+    ): RecuerdoResponse
+
+    @GET("imagenes/usuario/{id}")
     suspend fun obtenerImagenesUsuario(
         @Header("Authorization") token: String,
         @Path("id") id: Int
     ): List<ImagenResponse>
 
-    @DELETE("api/imagenes/{id}")
+    @DELETE("imagenes/{id}")
     suspend fun eliminarImagen(
         @Header("Authorization") token: String,
         @Path("id") id: Int
     ): Response<Unit>
 
-    // --- RECUERDOS (Nuevas rutas para PostgreSQL) ---
-    @POST("api/recuerdos")
-    suspend fun crearRecuerdo(
-        @Header("Authorization") token: String,
-        @Body request: RecuerdoRequest
-    ): RecuerdoResponse
 
     @GET("api/recuerdos/usuario/{id}")
     suspend fun obtenerRecuerdosUsuario(
