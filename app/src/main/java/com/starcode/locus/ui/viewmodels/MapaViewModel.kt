@@ -2,6 +2,7 @@ package com.starcode.locus.ui.viewmodels
 
 import android.app.Application
 import android.util.Log
+import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.starcode.locus.data.dao.LocusDao
@@ -13,9 +14,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import okhttp3.MultipartBody
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 class MapaViewModel(application: Application, private val dao: LocusDao) : AndroidViewModel(application) {
 
+    var debugStep by mutableStateOf("Esperando...")
     private val _lugares = MutableStateFlow<List<LugarEntity>>(emptyList())
     val lugares: StateFlow<List<LugarEntity>> = _lugares
 
@@ -40,19 +44,30 @@ class MapaViewModel(application: Application, private val dao: LocusDao) : Andro
         }
     }
 
-    private fun sincronizarConServidor() {
+    fun sincronizarConServidor() {
         viewModelScope.launch {
-            _estaCargando.value = true
             try {
-                val token = sessionManager.obtenerToken() ?: ""
-                val lugaresApi = RetrofitClient.instance.obtenerTodosLosLugares("Bearer $token")
+                val token = sessionManager.obtenerToken() ?: return@launch
+                val authHeader = "Bearer $token"
+
+                // 1. PRIMERO LAS CATEGORÍAS (Esto evita el error de Foreign Key)
+                debugStep = "📂 Sincronizando categorías..."
+                val categoriasApi = RetrofitClient.instance.obtenerCategorias(authHeader)
+                dao.insertarCategorias(categoriasApi)
+
+                // 2. AHORA SÍ, LOS LUGARES
+                debugStep = "🌐 Descargando lugares..."
+                val lugaresApi = RetrofitClient.instance.obtenerTodosLosLugares(authHeader)
+
                 dao.borrarTodosLosLugares()
                 dao.insertarLugares(lugaresApi)
+
                 _lugares.value = dao.obtenerLugares()
+                debugStep = "✅ ¡Mapa listo con ${lugaresApi.size} puntos!"
+
             } catch (e: Exception) {
-                Log.e("Locus", "Error sync: ${e.message}")
-            } finally {
-                _estaCargando.value = false
+                debugStep = "💥 Error API: FOREIGN KEY corregida?"
+                Log.e("LocusDebug", "Fallo en sync", e)
             }
         }
     }

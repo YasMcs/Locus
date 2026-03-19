@@ -29,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.Lifecycle
@@ -146,6 +147,7 @@ fun MapaScreen(
     var lugarSeleccionado by remember { mutableStateOf<LugarEntity?>(null) }
     var showBottomSheet by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
+    var debugStep by mutableStateOf("Iniciando...")
 
     LaunchedEffect(Unit) { viewModel.cargarLugares() }
 
@@ -174,6 +176,8 @@ fun MapaScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
+
+
         AndroidView(
             factory = {
                 mapView.apply {
@@ -364,5 +368,17 @@ fun MapaScreen(
         }
 
         SnackbarHost(hostState = snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 32.dp))
+        Column(
+            modifier = Modifier
+                .align(Alignment.TopStart) // Arriba a la izquierda
+                .padding(top = 120.dp, start = 16.dp) // Baja lo suficiente para no chocar con tu Surface blanca
+                .background(Color.Black.copy(alpha = 0.8f), RoundedCornerShape(8.dp))
+                .padding(16.dp)
+                .zIndex(10f) // Esto asegura que esté por encima de cualquier otro elemento
+        ) {
+            val lugares by viewModel.lugares.collectAsState()
+            Text("📍 Puntos en lista: ${lugares.size}", color = Color.Green, fontWeight = FontWeight.Bold)
+            Text("⚙️ Estado: ${viewModel.debugStep}", color = Color.Yellow, fontSize = 12.sp)
+        }
     }
 }
