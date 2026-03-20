@@ -44,13 +44,13 @@ interface LocusApiService {
         @Body recuerdoRequest: RecuerdoRequest
     ): RecuerdoResponse
 
-    @GET("imagenes/usuario/{id}")
+    @GET("api/imagenes/usuario/{id}")
     suspend fun obtenerImagenesUsuario(
         @Header("Authorization") token: String,
         @Path("id") id: Int
     ): List<ImagenResponse>
 
-    @DELETE("imagenes/{id}")
+    @DELETE("api/imagenes/{id}")
     suspend fun eliminarImagen(
         @Header("Authorization") token: String,
         @Path("id") id: Int

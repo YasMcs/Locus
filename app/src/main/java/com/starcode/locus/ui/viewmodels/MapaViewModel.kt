@@ -35,9 +35,11 @@ class MapaViewModel(application: Application, private val dao: LocusDao) : Andro
 
     fun cargarLugares() {
         viewModelScope.launch {
+            // No activamos loading aquí porque la DB local es instantánea
             try {
                 val dbLugares = dao.obtenerLugares()
                 _lugares.value = dbLugares
+                // Si la DB está vacía, sincronizamos (aquí es donde tarda)
                 if (dbLugares.isEmpty()) sincronizarConServidor()
             } catch (e: Exception) {
                 Log.e("Locus", "Error al cargar: ${e.message}")
@@ -47,32 +49,29 @@ class MapaViewModel(application: Application, private val dao: LocusDao) : Andro
 
     fun sincronizarConServidor() {
         viewModelScope.launch {
+            _estaCargando.value = true // 1. ENCENDER AL PERRITO
             try {
                 val token = sessionManager.obtenerToken() ?: return@launch
                 val authHeader = "Bearer $token"
 
-                // 1. PRIMERO LAS CATEGORÍAS (Esto evita el error de Foreign Key)
-                debugStep = "📂 Sincronizando categorías..."
+                // Sincronización de categorías
                 val categoriasApi = RetrofitClient.instance.obtenerCategorias(authHeader)
                 dao.insertarCategorias(categoriasApi)
 
-                // 2. AHORA SÍ, LOS LUGARES
-                debugStep = "🌐 Descargando lugares..."
+                // Sincronización de lugares
                 val lugaresApi = RetrofitClient.instance.obtenerTodosLosLugares(authHeader)
-
                 dao.borrarTodosLosLugares()
                 dao.insertarLugares(lugaresApi)
 
                 _lugares.value = dao.obtenerLugares()
-                debugStep = "✅ ¡Mapa listo con ${lugaresApi.size} puntos!"
 
             } catch (e: Exception) {
-                debugStep = "💥 Error API: FOREIGN KEY corregida?"
                 Log.e("LocusDebug", "Fallo en sync", e)
+            } finally {
+                _estaCargando.value = false // 2. APAGAR AL PERRITO
             }
         }
     }
-
     // FUNCIÓN FINAL DE SUBIDA PARA POSTGRESQL
     fun subirImagenConDatos(userId: RequestBody, lugarId: RequestBody, imagenPart: MultipartBody.Part, nota: String) {
         viewModelScope.launch {

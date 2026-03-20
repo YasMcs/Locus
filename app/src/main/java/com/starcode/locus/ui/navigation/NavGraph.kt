@@ -119,7 +119,8 @@ fun NavGraph(navController: NavHostController, dao: LocusDao) {
             MapaScreen(
                 viewModel = mapaViewModel,
                 sessionManager = sessionManager, // <--- PÁSALO AQUÍ
-                onNavigateToPerfil = { navController.navigate("perfil") }
+                onNavigateToPerfil = { navController.navigate("perfil") },
+                onNavigateToRecuerdos = { navController.navigate("recuerdos") }
             )
         }
 
@@ -133,6 +134,23 @@ fun NavGraph(navController: NavHostController, dao: LocusDao) {
                         popUpTo("home") { inclusive = true }
                     }
                 }
+            )
+        }
+        // --- AGREGA ESTO DESPUÉS DE LA RUTA "perfil" ---
+        composable("recuerdos") {
+            // 1. Creamos el ViewModel específico para Recuerdos
+            val recuerdosViewModel: com.starcode.locus.ui.viewmodels.RecuerdosViewModel = viewModel(
+                factory = object : ViewModelProvider.Factory {
+                    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                        return com.starcode.locus.ui.viewmodels.RecuerdosViewModel(sessionManager) as T
+                    }
+                }
+            )
+
+            // 2. Llamamos a la pantalla de Recuerdos
+            RecuerdosScreen(
+                viewModel = recuerdosViewModel,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 

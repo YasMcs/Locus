@@ -59,7 +59,8 @@ import java.util.Locale
 fun MapaScreen(
     viewModel: MapaViewModel,
     sessionManager: SessionManager, // <--- AGREGA ESTO
-    onNavigateToPerfil: () -> Unit
+    onNavigateToPerfil: () -> Unit,
+    onNavigateToRecuerdos: () -> Unit // <--- AGREGA ESTA LÍNEA AQUÍ
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -272,7 +273,7 @@ fun MapaScreen(
                     Text("Explorador Kora", fontWeight = FontWeight.Bold, color = LocusDeepPurple, fontSize = 14.sp)
                     Text(nombreUbicacion, color = Color.Gray, fontSize = 11.sp)
                 }
-                IconButton(onClick = onNavigateToPerfil) { Icon(Icons.Default.Person, null, tint = LocusDeepPurple) }
+                IconButton(onClick = onNavigateToPerfil) { Icon(Icons.Default.Person, null, tint = LocusActionOrange) }
             }
         }
 
@@ -280,7 +281,7 @@ fun MapaScreen(
             onClick = { locationOverlay.myLocation?.let { mapView.controller.animateTo(it) } },
             modifier = Modifier.align(Alignment.CenterEnd).padding(end = 16.dp),
             containerColor = LocusSurfaceWhite, contentColor = LocusActionOrange, shape = RoundedCornerShape(16.dp)
-        ) { Icon(Icons.Default.MyLocation, null) }
+        ) { Icon(Icons.Default.MyLocation, null)}
 
         Column(
             modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 32.dp, end = 16.dp),
@@ -291,17 +292,37 @@ fun MapaScreen(
                     modifier = Modifier.offset(y = animY).alpha(alphaAnim),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    // 1. Favoritos
                     FloatingActionButton(
-                        onClick = { menuExpandido = false },
+                        onClick = {
+                            menuExpandido = false
+                            // onNavigateToFavoritos() // <--- Si tienes esta ruta
+                        },
                         modifier = Modifier.size(56.dp),
                         containerColor = LocusSurfaceWhite, contentColor = LocusActionOrange, shape = CircleShape
-                    ) { Icon(Icons.Default.Favorite, null) }
+                    ) { Icon(Icons.Default.Favorite, "Favoritos") }
 
+                    // 📸 2. NUEVO: RECUERDOS (GALERÍA)
                     FloatingActionButton(
-                        onClick = { menuExpandido = false },
+                        onClick = {
+                            menuExpandido = false
+                            onNavigateToRecuerdos()
+                        },
+                        modifier = Modifier.size(56.dp),
+                        containerColor = LocusSurfaceWhite,
+                        contentColor = LocusActionOrange,
+                        shape = CircleShape
+                    ) { Icon(Icons.Default.Collections, "Mis Recuerdos") }
+
+                    // 3. Historial
+                    FloatingActionButton(
+                        onClick = {
+                            menuExpandido = false
+                            // onNavigateToHistorial() // <--- Si tienes esta ruta
+                        },
                         modifier = Modifier.size(56.dp),
                         containerColor = LocusSurfaceWhite, contentColor = LocusActionOrange, shape = CircleShape
-                    ) { Icon(Icons.Default.History, null) }
+                    ) { Icon(Icons.Default.History, "Historial") }
 
                     Spacer(modifier = Modifier.height(68.dp))
                 }
@@ -310,7 +331,7 @@ fun MapaScreen(
                     onClick = { menuExpandido = !menuExpandido },
                     modifier = Modifier.size(56.dp),
                     containerColor = if (menuExpandido) LocusActionOrange else LocusSurfaceWhite,
-                    contentColor = if (menuExpandido) Color.White else LocusDeepPurple,
+                    contentColor = if (menuExpandido) Color.White else LocusActionOrange,
                     shape = CircleShape
                 ) {
                     Icon(
@@ -332,8 +353,7 @@ fun MapaScreen(
             }
         }
 
-        // --- FICHA ACTUALIZADA (BOTTOM SHEET) ---
-        // --- FICHA ACTUALIZADA (REEMPLAZA DESDE AQUÍ) ---
+// --- FICHA ACTUALIZADA (TÍTULO Y FAVORITO ALINEADOS) ---
         if (showBottomSheet && lugarSeleccionado != null) {
             ModalBottomSheet(
                 onDismissRequest = { showBottomSheet = false },
@@ -341,114 +361,136 @@ fun MapaScreen(
                 shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
                 dragHandle = { BottomSheetDefaults.DragHandle(color = LocusActionOrange) }
             ) {
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    // 1. BOTÓN FAVORITO (Esquina superior derecha)
-                    IconButton(
-                        onClick = { /* TODO: Implementar guardado en DB local o API */ },
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(end = 16.dp)
-                            .background(LocusActionOrange.copy(alpha = 0.1f), CircleShape)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .padding(bottom = 40.dp)
+                ) {
+                    // 1. CABECERA: TÍTULO Y CORAZÓN EN UNA FILA
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.FavoriteBorder,
-                            contentDescription = "Favorito",
-                            tint = LocusActionOrange
-                        )
-                    }
-
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 24.dp)
-                            .padding(bottom = 40.dp)
-                    ) {
-                        // 2. TÍTULO (Con espacio para el corazón)
                         Text(
                             text = lugarSeleccionado?.titulo_ficha ?: "Lugar",
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.ExtraBold,
-                            modifier = Modifier.padding(end = 48.dp)
+                            modifier = Modifier.weight(1f) // Esto empuja al corazón a la orilla y respeta el espacio
                         )
 
-                        Spacer(Modifier.height(12.dp))
-
-                        // 3. DESCRIPCIÓN
-                        Text(
-                            text = lugarSeleccionado?.descripcion_hist ?: "",
-                            style = MaterialTheme.typography.bodyLarge,
-                            lineHeight = 24.sp,
-                            color = LocusDeepPurple.copy(alpha = 0.8f)
-                        )
-
-                        Spacer(Modifier.height(24.dp))
-
-                        // 4. SECCIÓN DATO CURIOSO
-                        Surface(
-                            color = LocusActionOrange.copy(alpha = 0.08f),
-                            shape = RoundedCornerShape(20.dp),
-                            modifier = Modifier.fillMaxWidth(),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, LocusActionOrange.copy(alpha = 0.2f))
+                        // Corazón limpio, sin fondo circular
+                        IconButton(
+                            onClick = { /* TODO: Implementar favoritos */ },
+                            modifier = Modifier.size(32.dp)
                         ) {
-                            Row(
-                                modifier = Modifier.padding(16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text("💡", fontSize = 22.sp)
-                                Spacer(Modifier.width(12.dp))
-                                Column {
-                                    Text(
-                                        "Dato Curioso",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp,
-                                        color = LocusActionOrange
-                                    )
-                                    Text(
-                                        text = lugarSeleccionado?.dato_curioso ?: "¡Explora para descubrir más!",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontStyle = FontStyle.Italic
-                                    )
-                                }
+                            Icon(
+                                imageVector = Icons.Default.FavoriteBorder,
+                                contentDescription = "Favorito",
+                                tint = LocusActionOrange,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(16.dp))
+
+                    // 2. DESCRIPCIÓN
+                    Text(
+                        text = lugarSeleccionado?.descripcion_hist ?: "",
+                        style = MaterialTheme.typography.bodyLarge,
+                        lineHeight = 24.sp,
+                        color = LocusDeepPurple.copy(alpha = 0.8f)
+                    )
+
+                    Spacer(Modifier.height(24.dp))
+
+                    // 3. SECCIÓN DATO CURIOSO
+                    Surface(
+                        color = LocusActionOrange.copy(alpha = 0.08f),
+                        shape = RoundedCornerShape(20.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, LocusActionOrange.copy(alpha = 0.2f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // CAMBIO: Icono en lugar de Emoji
+                            Icon(
+                                imageVector = Icons.Default.Lightbulb, // O Icons.Default.Info si prefieres algo más sobrio
+                                contentDescription = null,
+                                tint = LocusActionOrange, // Usamos tu color naranja para que todo combine
+                                modifier = Modifier.size(28.dp)
+                            )
+
+                            Spacer(Modifier.width(16.dp))
+                            Column {
+                                Text(
+                                    "Dato Curioso",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp,
+                                    color = LocusActionOrange
+                                )
+                                Text(
+                                    text = lugarSeleccionado?.dato_curioso ?: "¡Explora para descubrir más!",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontStyle = FontStyle.Italic
+                                )
                             }
                         }
+                    }
 
-                        Spacer(Modifier.height(32.dp))
+                    Spacer(Modifier.height(32.dp))
 
-                        // 5. BOTÓN CAPTURAR RECUERDO
-                        Button(
-                            onClick = {
-                                showBottomSheet = false // Cerramos ficha antes de abrir cámara
-                                cameraLauncher.launch(null)
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(56.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = LocusActionOrange),
-                            shape = RoundedCornerShape(16.dp),
-                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
-                        ) {
-                            Icon(Icons.Default.AddAPhoto, contentDescription = null)
-                            Spacer(Modifier.width(12.dp))
-                            Text("Capturar Recuerdo", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        }
+                    // 4. BOTÓN CAPTURAR RECUERDO
+                    Button(
+                        onClick = {
+                            showBottomSheet = false
+                            cameraLauncher.launch(null)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = LocusActionOrange),
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+                    ) {
+                        Icon(Icons.Default.AddAPhoto, contentDescription = null, tint = Color.White)
+                        Spacer(Modifier.width(12.dp))
+                        Text("Capturar Recuerdo", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
                     }
                 }
             }
         }
-        // --- HASTA AQUÍ ---
 
         SnackbarHost(hostState = snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 32.dp))
-        Column(
-            modifier = Modifier
-                .align(Alignment.TopStart) // Arriba a la izquierda
-                .padding(top = 120.dp, start = 16.dp) // Baja lo suficiente para no chocar con tu Surface blanca
-                .background(Color.Black.copy(alpha = 0.8f), RoundedCornerShape(8.dp))
-                .padding(16.dp)
-                .zIndex(10f) // Esto asegura que esté por encima de cualquier otro elemento
-        ) {
-            val lugares by viewModel.lugares.collectAsState()
-            Text("📍 Puntos en lista: ${lugares.size}", color = Color.Green, fontWeight = FontWeight.Bold)
-            Text("⚙️ Estado: ${viewModel.debugStep}", color = Color.Yellow, fontSize = 12.sp)
+
+        // --- LOADING DOGGY (IGUAL QUE EN RECUERDOS) ---
+        if (cargando) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(LocusBackground.copy(alpha = 0.8f))
+                    .zIndex(10f), // Esto asegura que tape el mapa y botones
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    LottieAnimation(
+                        composition = composition,
+                        progress = { progress },
+                        modifier = Modifier.size(180.dp)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Buscando historias...",
+                        color = LocusDeepPurple,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 16.sp
+                    )
+                }
+            }
         }
-    }
+    } // <-- Aquí cierra el Box principal
 }

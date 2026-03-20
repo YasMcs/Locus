@@ -5,8 +5,12 @@ import kotlinx.serialization.Serializable
 // Lo que recibes de la API de imágenes
 @Serializable
 data class ImagenResponse(
-    val id_imagen: Int, // <-- Asegúrate de que el nombre sea EXACTAMENTE este
-    val url_imagen: String
+    val id_imagen: Int,
+    val id_usuario: Int,
+    val id_lugar: Int,
+    val url_imagen: String,
+    val fecha_subida: String, // El datetime de Exposed llega como String (ISO)
+    val nombre_lugar: String? = "Lugar Desconocido" // <--- Agrega este si el back lo envía
 )
 
 

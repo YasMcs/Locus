@@ -61,7 +61,7 @@ fun RegistroScreen(
         // Reemplaza el Text(text = "Kora"...) por esto:
         Image(
             painter = painterResource(id = com.starcode.locus.R.drawable.logoko),
-            contentDescription = "Logo Kora",
+            contentDescription = "Logo Locus",
             modifier = Modifier
                 .size(200.dp) // Ajusta el tamaño aquí (120dp es un buen estándar)
                 .padding(bottom = 8.dp),
