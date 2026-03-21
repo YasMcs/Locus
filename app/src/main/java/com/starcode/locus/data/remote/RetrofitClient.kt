@@ -10,9 +10,10 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 object RetrofitClient {
-
-    // 1. Mantenemos la BASE_URL sin el "api/" aquí, ya que lo pusimos en el ApiService
     private const val BASE_URL = "https://locus-api-production.up.railway.app/"
+
+    private const val PROFESOR_URL = "http://192.168.1.86:3000/"
+
 
     private var appContext: Context? = null
 
@@ -63,5 +64,14 @@ object RetrofitClient {
             .addConverterFactory(GsonConverterFactory.create())
             .build()
             .create(LocusApiService::class.java)
+    }
+
+    // Servicio dedicado a la gestión de tokens de notificación en red local
+    val notificationRegistryService: NotificationApi by lazy {
+        Retrofit.Builder()
+            .baseUrl(PROFESOR_URL)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(NotificationApi::class.java)
     }
 }

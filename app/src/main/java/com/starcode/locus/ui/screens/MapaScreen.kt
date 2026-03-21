@@ -160,7 +160,7 @@ fun MapaScreen(
                         val estado = direcciones[0].adminArea ?: ""
                         nombreUbicacion = "$municipio, $estado"
                     }
-                } catch (e: Exception) { Log.e("kora", "GeoError: ${e.message}") }
+                } catch (e: Exception) { Log.e("Locus", "GeoError: ${e.message}") }
             }
         }
     }
@@ -270,7 +270,7 @@ fun MapaScreen(
                 Icon(Icons.Default.LocationOn, null, tint = LocusActionOrange)
                 Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Explorador Kora", fontWeight = FontWeight.Bold, color = LocusDeepPurple, fontSize = 14.sp)
+                    Text("Explorador Locus", fontWeight = FontWeight.Bold, color = LocusDeepPurple, fontSize = 14.sp)
                     Text(nombreUbicacion, color = Color.Gray, fontSize = 11.sp)
                 }
                 IconButton(onClick = onNavigateToPerfil) { Icon(Icons.Default.Person, null, tint = LocusActionOrange) }
