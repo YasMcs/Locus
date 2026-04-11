@@ -1,4 +1,4 @@
-package com.starcode.locus.ui.navigation
+package com.starcode.locus.ui.screens
 
 import android.app.Application
 import android.util.Log
@@ -33,10 +33,20 @@ fun NavGraph(navController: NavHostController, dao: LocusDao) {
         else -> "welcome"
     }
 
+    // ViewModels principales
     val authViewModel: AuthViewModel = viewModel(
         factory = object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 return AuthViewModel(application, dao) as T
+            }
+        }
+    )
+
+    // Declaramos MapaViewModel aquí afuera para que "mapa" y "favoritos" lo compartan
+    val mapaViewModel: MapaViewModel = viewModel(
+        factory = object : ViewModelProvider.Factory {
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                return MapaViewModel(application, dao) as T
             }
         }
     )
@@ -70,11 +80,8 @@ fun NavGraph(navController: NavHostController, dao: LocusDao) {
             val authState by authViewModel.authState.collectAsState()
 
             RegistroScreen(
-                onRegistrar = { nom, pat, mat, _, mail, pw ->
-                    authViewModel.registrarUsuario(nom, pat, mat, fechaParaDB, mail, pw)
-                },
+                viewModel = authViewModel,
                 onIrALogin = { navController.navigate("login") },
-                authState = authState,
                 fechaValidada = fechaParaDB
             )
 
@@ -97,7 +104,6 @@ fun NavGraph(navController: NavHostController, dao: LocusDao) {
 
             LaunchedEffect(authState) {
                 if (authState is AuthResult.Success) {
-                    Log.d("LocusDebug", "✅ Login Exitoso detectado en NavGraph")
                     navController.navigate("mapa") {
                         popUpTo("login") { inclusive = true }
                         launchSingleTop = true
@@ -108,37 +114,35 @@ fun NavGraph(navController: NavHostController, dao: LocusDao) {
         }
 
         composable("mapa") {
-            SideEffect { Log.d("LocusDebug", "🚀 [NAVGRAPH] Cargando ruta MAPA") }
-            val mapaViewModel: MapaViewModel = viewModel(
-                factory = object : ViewModelProvider.Factory {
-                    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                        return MapaViewModel(application, dao) as T
-                    }
-                }
-            )
             MapaScreen(
                 viewModel = mapaViewModel,
-                sessionManager = sessionManager, // <--- PÁSALO AQUÍ
+                sessionManager = sessionManager,
                 onNavigateToPerfil = { navController.navigate("perfil") },
-                onNavigateToRecuerdos = { navController.navigate("recuerdos") }
+                onNavigateToRecuerdos = { navController.navigate("recuerdos") },
+                onNavigateToFavoritos = { navController.navigate("favoritos") }
             )
         }
 
-        // En NavGraph.kt (Línea 128 aprox)
+        composable("favoritos") {
+            FavoritosScreen(
+                viewModel = mapaViewModel,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
         composable("perfil") {
             PerfilScreen(
                 authViewModel = authViewModel,
                 onNavigateBack = { navController.popBackStack() },
-                onLogoutNavigation = { // 👈 Cambia 'onLogout' por 'onLogoutNavigation'
+                onLogoutNavigation = {
                     navController.navigate("login") {
-                        popUpTo("home") { inclusive = true }
+                        popUpTo("mapa") { inclusive = true } // Cambiado a mapa para limpiar todo
                     }
                 }
             )
         }
-        // --- AGREGA ESTO DESPUÉS DE LA RUTA "perfil" ---
+
         composable("recuerdos") {
-            // 1. Creamos el ViewModel específico para Recuerdos
             val recuerdosViewModel: com.starcode.locus.ui.viewmodels.RecuerdosViewModel = viewModel(
                 factory = object : ViewModelProvider.Factory {
                     override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -147,12 +151,10 @@ fun NavGraph(navController: NavHostController, dao: LocusDao) {
                 }
             )
 
-            // 2. Llamamos a la pantalla de Recuerdos
             RecuerdosScreen(
                 viewModel = recuerdosViewModel,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
-
-        }
     }
+}

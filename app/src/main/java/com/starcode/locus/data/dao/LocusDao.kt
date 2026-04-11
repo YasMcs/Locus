@@ -50,4 +50,7 @@ interface LocusDao {
     @Query("DELETE FROM usuarios")
     suspend fun borrarTodosLosUsuarios()
 
+    @Query("UPDATE lugares SET isFavorite = :esFavorito WHERE id_lugar = :idLugar")
+    suspend fun actualizarEstadoFavoritoLocal(idLugar: Int, esFavorito: Boolean)
+
 }

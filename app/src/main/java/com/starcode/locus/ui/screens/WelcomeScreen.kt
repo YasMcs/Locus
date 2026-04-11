@@ -5,8 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AdsClick
-import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.NotificationsActive
@@ -25,13 +23,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.starcode.locus.R
 
-
 @Composable
 fun WelcomeScreen(
     onNavigateToLogin: () -> Unit,
-    onNavigateToRegistro: () -> Unit // Nuevo parámetro
+    onNavigateToRegistro: () -> Unit
 ) {
-    // Definición de colores según tu diseño
+    // Definición de colores
     val LocusDeepPurple = Color(0xFF1D1B20)
     val LocusActionOrange = Color(0xFFE6673D)
     val LocusBackground = Color(0xFFFDF6EE)
@@ -41,7 +38,7 @@ fun WelcomeScreen(
             .fillMaxSize()
             .background(LocusBackground)
     ) {
-        // 1. Imagen de fondo
+        // 1. Imagen de fondo (Edge-to-Edge total: llega hasta arriba del todo)
         Image(
             painter = painterResource(id = R.drawable.locus_illustration),
             contentDescription = null,
@@ -52,7 +49,7 @@ fun WelcomeScreen(
             contentScale = ContentScale.Crop
         )
 
-        // 2. Capa de Degradado
+        // 2. Capa de Degradado para suavizar la transición con el fondo
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -69,13 +66,16 @@ fun WelcomeScreen(
                 )
         )
 
-        // 3. Contenido Principal
+        // 3. Contenido Principal (Protegido por WindowInsets)
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                // Esto evita que el contenido quede debajo del Notch o de la barra de navegación
+                .windowInsetsPadding(WindowInsets.systemBars)
                 .padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Empujamos el contenido hacia abajo dinámicamente
             Spacer(modifier = Modifier.weight(0.9f))
 
             // Título y Eslogan
@@ -127,7 +127,7 @@ fun WelcomeScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // --- BOTÓN PRINCIPAL (Registro + Edad) ---
+            // --- BOTÓN PRINCIPAL (Registro) ---
             Button(
                 onClick = onNavigateToRegistro,
                 modifier = Modifier
@@ -147,7 +147,7 @@ fun WelcomeScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // --- BOTÓN SECUNDARIO (Login Directo) ---
+            // --- BOTÓN SECUNDARIO (Login) ---
             OutlinedButton(
                 onClick = onNavigateToLogin,
                 modifier = Modifier
@@ -165,13 +165,12 @@ fun WelcomeScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            // Espacio final para que no quede pegado al borde inferior
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
 
-// --- Componente FeatureCard (Fuera de la WelcomeScreen para que weight funcione) ---
-//
 @Composable
 fun RowScope.FeatureCard(
     icon: ImageVector,

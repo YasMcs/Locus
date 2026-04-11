@@ -1,6 +1,7 @@
 package com.starcode.locus.ui.viewmodels
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.starcode.locus.data.dao.LocusDao
@@ -14,6 +15,9 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import android.widget.Toast
+import com.starcode.locus.data.remote.request.AuthResponse
+import retrofit2.HttpException
 
 // Resultado de autenticación para la UI
 sealed class AuthResult {
@@ -23,7 +27,19 @@ sealed class AuthResult {
     data class Error(val message: String) : AuthResult()
 }
 
-class AuthViewModel(application: Application, private val dao: LocusDao) : AndroidViewModel(application) {
+    class AuthViewModel(application: Application, private val dao: LocusDao) : AndroidViewModel(application) {
+        init {
+            clearLegacyData()
+        }
+        private fun clearLegacyData() {
+            try {
+                val prefs = context.getSharedPreferences("locus_prefs", Context.MODE_PRIVATE)
+                prefs.edit().clear().apply()
+            } catch (e: Exception) {
+                android.util.Log.e("LocusDebug", "Error limpiando datos legacy: ${e.message}")
+            }
+        }
+        private val context = application.applicationContext
 
     private val _authState = MutableStateFlow<AuthResult>(AuthResult.Idle)
     val authState: StateFlow<AuthResult> = _authState
@@ -46,15 +62,11 @@ class AuthViewModel(application: Application, private val dao: LocusDao) : Andro
             _authState.value = AuthResult.Loading
             try {
                 val response = RetrofitClient.instance.login(LoginRequest(email, password))
-                if (!response.token.isNullOrBlank()) {
-                    sessionManager.guardarToken(response.token)
-
-                    val user = response.usuario
-
-                    // ✅ ESTA ES LA LÍNEA QUE FALTABA:
+                val body = response.body()
+                if (body != null && !body.token.isNullOrBlank()) {
+                    sessionManager.guardarToken(body.token)
+                    val user = body.usuario
                     sessionManager.guardarUserId(user.id_usuario)
-
-                    // Guardar en la DB local (Room) para el perfil
                     dao.insertarUsuarios(listOf(
                         UsuarioEntity(
                             id_usuario = user.id_usuario,
@@ -67,7 +79,7 @@ class AuthViewModel(application: Application, private val dao: LocusDao) : Andro
                             fecha_nac = user.fecha_nac
                         )
                     ))
-                    _authState.value = AuthResult.Success(response.token)
+                    _authState.value = AuthResult.Success(body.token)
                 }
             } catch (e: Exception) {
                 _authState.value = AuthResult.Error("Credenciales incorrectas o error de red")
@@ -82,8 +94,10 @@ class AuthViewModel(application: Application, private val dao: LocusDao) : Andro
         materno: String,
         fecha: String,
         email: String,
-        pass: String
+        pass: String,
+        genero: String = ""
     ) {
+        println("DEBUG: 2. Entrando al ViewModel")
         viewModelScope.launch {
             _authState.value = AuthResult.Loading
             try {
@@ -93,18 +107,55 @@ class AuthViewModel(application: Application, private val dao: LocusDao) : Andro
                     ape_ma = if (materno.isBlank()) null else materno,
                     fecha_nac = if (fecha.isBlank() || fecha == "Fecha de Nacimiento") null else fecha,
                     email = email,
-                    password = pass
+                    password = pass,
+                    genero = genero.takeIf { it.isNotBlank() }
                 )
 
-                // Dentro de registrarUsuario
+                println("DEBUG: 3. Lanzando petición Coroutine")
+                android.util.Log.d("LocusDebug", "Intentando registro con: $request")
+                println("DEBUG: 4. Llamando a ApiService con: $nombre, $email")
                 val response = RetrofitClient.instance.registrarUsuario(request)
-                if (response.token.isNotEmpty()) {
-                    sessionManager.guardarToken(response.token)
-                    // ✅ OPCIONAL: Si el registro te devuelve el id_usuario, guárdalo aquí también
-                    // sessionManager.guardarUserId(response.usuario.id_usuario)
-                    _authState.value = AuthResult.Success(response.token)
+                
+                println("DEBUG: Status code: ${response.code()}, body: ${response.body()}")
+                if (response.isSuccessful) {
+                    println("DEBUG: Registro exitoso en servidor: ${response.body()}")
+                    val responseData = response.body()
+                    if (responseData != null && responseData.token != null && responseData.token.isNotEmpty()) {
+                        android.util.Log.d("LocusDebug", "Registro exitoso: $responseData")
+
+                        sessionManager.guardarToken(responseData.token)
+                        
+                        responseData.usuario?.let { user ->
+                            sessionManager.guardarUserId(user.id_usuario)
+                            dao.insertarUsuarios(listOf(
+                                UsuarioEntity(
+                                    id_usuario = user.id_usuario,
+                                    nombre = user.nombre,
+                                    ape_pa = user.ape_pa,
+                                    ape_ma = user.ape_ma,
+                                    email = user.email,
+                                    password = "",
+                                    genero = user.genero,
+                                    fecha_nac = user.fecha_nac
+                                )
+                            ))
+                        }
+                        
+                        Toast.makeText(context, "REGISTRO OK", Toast.LENGTH_SHORT).show()
+                        _authState.value = AuthResult.Success(responseData.token)
+                    } else {
+                        _authState.value = AuthResult.Error("Token vacío del servidor")
+                    }
+                } else {
+                    val errorBody = response.errorBody()?.string()
+                    println("DEBUG: Error del servidor (${response.code()}): $errorBody")
+                    _authState.value = AuthResult.Error("Error servidor (${response.code()}): $errorBody")
                 }
+            } catch (e: HttpException) {
+                Toast.makeText(context, "ERROR SERVER: ${e.code()}", Toast.LENGTH_SHORT).show()
+                _authState.value = AuthResult.Error("Error servidor: ${e.code()}")
             } catch (e: Exception) {
+                Toast.makeText(context, "ERROR CRÍTICO: ${e.message}", Toast.LENGTH_LONG).show()
                 _authState.value = AuthResult.Error(e.localizedMessage ?: "Error al registrar")
             }
         }

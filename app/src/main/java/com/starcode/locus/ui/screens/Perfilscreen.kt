@@ -53,7 +53,13 @@ fun PerfilScreen(
     if (usuario == null) {
         val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.doggy))
         val progress by animateLottieCompositionAsState(composition, iterations = LottieConstants.IterateForever)
-        Box(modifier = Modifier.fillMaxSize().background(LocusBackground), contentAlignment = Alignment.Center) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(LocusBackground)
+                .windowInsetsPadding(WindowInsets.systemBars),
+            contentAlignment = Alignment.Center
+        ) {
             LottieAnimation(composition = composition, progress = { progress }, modifier = Modifier.size(200.dp))
         }
     } else {
@@ -67,7 +73,6 @@ fun PerfilScreen(
                         }
                     },
                     actions = {
-                        // Botón con texto para dar contexto claro
                         TextButton(onClick = { modoEdicion = !modoEdicion }) {
                             Text(
                                 text = if (modoEdicion) "Cancelar" else "Editar",
@@ -86,6 +91,8 @@ fun PerfilScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
+                    // Añadimos padding para el teclado (IME) para que no tape los campos al editar
+                    .windowInsetsPadding(WindowInsets.ime)
                     .verticalScroll(rememberScrollState())
                     .padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -100,7 +107,11 @@ fun PerfilScreen(
                 Image(
                     painter = painterResource(id = avatarRes),
                     contentDescription = null,
-                    modifier = Modifier.size(120.dp).clip(CircleShape).background(Color.White).padding(8.dp)
+                    modifier = Modifier
+                        .size(120.dp)
+                        .clip(CircleShape)
+                        .background(Color.White)
+                        .padding(8.dp)
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -114,8 +125,6 @@ fun PerfilScreen(
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                // --- CAMPOS UNIFICADOS ---
-
                 // Nombre
                 EditableInfoCard(
                     label = "Nombre",
@@ -127,12 +136,12 @@ fun PerfilScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Email (Solo lectura por seguridad usualmente)
+                // Email
                 InfoCard(label = "Correo Electrónico", value = usuario?.email ?: "", icon = Icons.Default.Email)
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Contraseña (Mismo estilo que las demás)
+                // Contraseña
                 EditableInfoCard(
                     label = "Contraseña",
                     value = passEdit,
@@ -148,14 +157,13 @@ fun PerfilScreen(
                     Spacer(modifier = Modifier.height(32.dp))
                     Button(
                         onClick = { modoEdicion = false },
-                        modifier = Modifier.fillMaxWidth().height(50.dp),
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = LocusActionOrange),
                         shape = RoundedCornerShape(16.dp)
                     ) {
                         Text("Guardar Cambios", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     }
                 } else {
-                    // EL BOTÓN DE CERRAR SESIÓN SOLO SE VE SI NO ESTÁS EDITANDO
                     Spacer(modifier = Modifier.height(48.dp))
                     TextButton(
                         onClick = {
@@ -168,6 +176,8 @@ fun PerfilScreen(
                         Spacer(Modifier.width(8.dp))
                         Text("Cerrar Sesión", color = Color.Red, fontWeight = FontWeight.Bold)
                     }
+                    // Espaciador final para que no quede pegado a la barra de gestos inferior
+                    Spacer(modifier = Modifier.height(24.dp))
                 }
             }
         }
@@ -199,7 +209,6 @@ fun EditableInfoCard(
             Spacer(modifier = Modifier.width(16.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                // Etiqueta (Label): Un gris medio para que se lea pero no distraiga
                 Text(label, fontSize = 11.sp, color = Color.DarkGray)
 
                 if (isEditing) {
@@ -210,9 +219,8 @@ fun EditableInfoCard(
                             .fillMaxWidth()
                             .offset(x = (-16).dp),
                         visualTransformation = if (isPassword && !passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
-                        // Ajuste de colores para legibilidad máxima
                         colors = TextFieldDefaults.colors(
-                            focusedTextColor = Color(0xFF1D1B20), // Negro Locus
+                            focusedTextColor = Color(0xFF1D1B20),
                             unfocusedTextColor = Color(0xFF1D1B20),
                             focusedContainerColor = Color.Transparent,
                             unfocusedContainerColor = Color.Transparent,
@@ -222,9 +230,9 @@ fun EditableInfoCard(
                         ),
                         placeholder = {
                             Text(
-                                text = if(isPassword) "Escribe nueva contraseña" else "Escribe tu nombre",
+                                text = if(isPassword) "Nueva contraseña" else "Escribe tu nombre",
                                 fontSize = 16.sp,
-                                color = Color.Gray // Gris visible
+                                color = Color.Gray
                             )
                         },
                         singleLine = true,
@@ -234,25 +242,25 @@ fun EditableInfoCard(
                                     Icon(
                                         imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
                                         contentDescription = null,
-                                        tint = Color(0xFFE6673D) // Naranja para que resalte el botón
+                                        tint = Color(0xFFE6673D)
                                     )
                                 }
                             }
                         } else null
                     )
                 } else {
-                    // Texto en modo lectura: Negro fuerte
                     Text(
                         text = if (isPassword) "••••••••" else value,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1D1B20) // Color de alto contraste
+                        color = Color(0xFF1D1B20)
                     )
                 }
             }
         }
     }
 }
+
 @Composable
 fun InfoCard(label: String, value: String, icon: ImageVector) {
     Surface(

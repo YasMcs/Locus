@@ -20,39 +20,19 @@ class RecuerdosViewModel(
     private val _estaCargando = MutableStateFlow(false)
     val estaCargando: StateFlow<Boolean> = _estaCargando
 
-    // Función para traer las fotos del servidor
-    // En tu RecuerdosViewModel.kt
-    private val _debugStep = MutableStateFlow("Esperando...")
-    val debugStep: StateFlow<String> = _debugStep
-
     fun cargarRecuerdos() {
         val userId = sessionManager.getUserId()
         val tokenRaw = sessionManager.obtenerToken()
 
         viewModelScope.launch {
             _estaCargando.value = true
-            _debugStep.value = "Iniciando... ID: $userId"
-
             try {
-                if (tokenRaw == null) {
-                    _debugStep.value = "❌ Error: Token nulo"
-                    return@launch
-                }
-
-                _debugStep.value = "📡 Llamando API (ID: $userId)..."
-
-                val lista = RetrofitClient.instance.obtenerImagenesUsuario(
-                    token = "Bearer $tokenRaw",
-                    id = userId
-                )
-
-                _debugStep.value = "✅ Éxito: ${lista.size} fotos recibidas"
+                if (tokenRaw.isNullOrBlank()) return@launch
+                val token = "Bearer $tokenRaw"
+                val lista = RetrofitClient.instance.obtenerImagenesUsuario(token, userId)
                 _imagenes.value = lista
-
             } catch (e: Exception) {
-                // Esto nos dirá si es 404, 500 o error de conexión
-                _debugStep.value = "💥 ERROR: ${e.localizedMessage ?: "Desconocido"}"
-                Log.e("LocusDebug", "Fallo: ", e)
+                Log.e("LocusDebug", "Error al cargar recuerdos: ${e.message}")
             } finally {
                 _estaCargando.value = false
             }

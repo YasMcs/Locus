@@ -18,7 +18,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -43,16 +42,13 @@ fun RecuerdosScreen(
     val imagenes by viewModel.imagenes.collectAsState()
     val estaCargando by viewModel.estaCargando.collectAsState()
 
-    // --- ESTADOS PARA EL VISUALIZADOR ---
     var imagenSeleccionada by remember { mutableStateOf<ImagenResponse?>(null) }
     val context = LocalContext.current
 
-    // --- COLORES LOCUS ---
     val LocusActionOrange = Color(0xFFE6673D)
     val LocusBackground = Color(0xFFFDF6EE)
     val LocusDeepPurple = Color(0xFF1D1B20)
 
-    // --- LOTTIE (DOGGY) ---
     val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.doggy))
     val progress by animateLottieCompositionAsState(composition, iterations = LottieConstants.IterateForever)
 
@@ -86,8 +82,11 @@ fun RecuerdosScreen(
             )
         }
     ) { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
             if (estaCargando) {
                 Column(
                     modifier = Modifier.align(Alignment.Center),
@@ -112,12 +111,16 @@ fun RecuerdosScreen(
                     Icon(Icons.Default.PhotoLibrary, null, modifier = Modifier.size(64.dp), tint = Color.Gray)
                     Spacer(Modifier.height(8.dp))
                     Text("Aún no tienes recuerdos", color = Color.Gray)
+
+                    TextButton(onClick = { viewModel.cargarRecuerdos() }) {
+                        Text("Actualizar galería", color = LocusActionOrange)
+                    }
                 }
             } else {
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(3),
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(8.dp),
+                    contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 32.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -140,18 +143,16 @@ fun RecuerdosScreen(
                 }
             }
 
-            // --- DIÁLOGO PARA VER EN GRANDE (INTERACTIVO) ---
+            // --- DIÁLOGO PARA VER EN GRANDE ---
             if (imagenSeleccionada != null) {
                 Dialog(
                     onDismissRequest = { imagenSeleccionada = null },
-                    properties = DialogProperties(usePlatformDefaultWidth = false)
+                    properties = DialogProperties(
+                        usePlatformDefaultWidth = false,
+                        decorFitsSystemWindows = false
+                    )
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color.Black)
-                    ) {
-                        // 1. Imagen en grande
+                    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
                         AsyncImage(
                             model = imagenSeleccionada?.url_imagen,
                             contentDescription = null,
@@ -159,37 +160,32 @@ fun RecuerdosScreen(
                             contentScale = ContentScale.Fit
                         )
 
-                        // 2. Gradiente superior para lectura de texto
+                        // Gradiente superior para visibilidad de texto
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(160.dp)
-                                .background(
-                                    Brush.verticalGradient(
-                                        listOf(Color.Black.copy(alpha = 0.8f), Color.Transparent)
-                                    )
-                                )
+                                .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.8f), Color.Transparent)))
                                 .align(Alignment.TopCenter)
                         )
 
-                        // 3. Información del lugar y fecha
+                        // Información del lugar
                         Column(
                             modifier = Modifier
                                 .align(Alignment.TopStart)
-                                .padding(top = 60.dp, start = 20.dp, end = 60.dp)
+                                .windowInsetsPadding(WindowInsets.statusBars)
+                                .padding(top = 16.dp, start = 20.dp, end = 60.dp)
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Default.LocationOn, null, tint = LocusActionOrange, modifier = Modifier.size(22.dp))
                                 Spacer(Modifier.width(6.dp))
                                 Text(
-                                    text = imagenSeleccionada?.nombre_lugar ?: "Lugar #${imagenSeleccionada?.id_lugar}",
+                                    text = imagenSeleccionada?.nombre_lugar ?: "Lugar Explorador",
                                     color = Color.White,
                                     fontSize = 22.sp,
                                     fontWeight = FontWeight.ExtraBold
                                 )
                             }
-
-                            // Formateo de fecha simple
                             val fechaCorta = imagenSeleccionada?.fecha_subida?.split("T")?.get(0) ?: "Reciente"
                             Text(
                                 text = "Capturado el $fechaCorta",
@@ -199,31 +195,29 @@ fun RecuerdosScreen(
                             )
                         }
 
-                        // 4. Botón Cerrar (Top End)
+                        // Botón Cerrar
                         IconButton(
                             onClick = { imagenSeleccionada = null },
-                            modifier = Modifier.align(Alignment.TopEnd).padding(top = 50.dp, end = 10.dp)
+                            modifier = Modifier.align(Alignment.TopEnd).windowInsetsPadding(WindowInsets.statusBars).padding(top = 8.dp, end = 10.dp)
                         ) {
                             Icon(Icons.Default.Close, null, tint = Color.White, modifier = Modifier.size(30.dp))
                         }
 
-                        // 5. Botón Descargar (Bottom)
+                        // Botón Descargar
                         Button(
-                            onClick = {
-                                descargarImagen(context, imagenSeleccionada?.url_imagen ?: "")
-                            },
+                            onClick = { descargarImagen(context, imagenSeleccionada?.url_imagen ?: "") },
                             modifier = Modifier
-                                .padding(bottom = 50.dp)
+                                .windowInsetsPadding(WindowInsets.navigationBars)
+                                .padding(bottom = 20.dp)
                                 .height(56.dp)
                                 .fillMaxWidth(0.7f)
                                 .align(Alignment.BottomCenter),
                             colors = ButtonDefaults.buttonColors(containerColor = LocusActionOrange),
-                            shape = RoundedCornerShape(28.dp),
-                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
+                            shape = RoundedCornerShape(28.dp)
                         ) {
                             Icon(Icons.Default.Download, null, tint = Color.White)
                             Spacer(Modifier.width(10.dp))
-                            Text("GUARDAR RECUERDO", fontWeight = FontWeight.Bold, color = Color.White)
+                            Text("GUARDAR EN GALERÍA", fontWeight = FontWeight.Bold, color = Color.White)
                         }
                     }
                 }
@@ -236,7 +230,7 @@ fun descargarImagen(context: Context, url: String) {
     try {
         val request = DownloadManager.Request(Uri.parse(url))
             .setTitle("Locus Recuerdo")
-            .setDescription("Descargando imagen de mis recuerdos...")
+            .setDescription("Descargando imagen...")
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
             .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "Locus_${System.currentTimeMillis()}.jpg")
             .setAllowedOverMetered(true)
@@ -245,8 +239,8 @@ fun descargarImagen(context: Context, url: String) {
         val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         downloadManager.enqueue(request)
 
-        Toast.makeText(context, "Iniciando descarga...", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, "Descarga iniciada", Toast.LENGTH_SHORT).show()
     } catch (e: Exception) {
-        Toast.makeText(context, "Error al descargar: ${e.message}", Toast.LENGTH_LONG).show()
+        Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
     }
 }

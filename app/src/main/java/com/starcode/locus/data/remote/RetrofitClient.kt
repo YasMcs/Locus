@@ -10,7 +10,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 object RetrofitClient {
-    private const val BASE_URL = "https://locus-api-production.up.railway.app/"
+    private const val BASE_URL = "https://locus-api-production-13fe.up.railway.app/"
 
     private const val PROFESOR_URL = "http://192.168.1.86:3000/"
 

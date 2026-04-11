@@ -2,6 +2,7 @@ package com.starcode.locus.data.entities
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import androidx.room.Ignore
 import androidx.room.ForeignKey
 @Entity(
     tableName = "lugares",
@@ -24,5 +25,6 @@ data class LugarEntity(
     val radio_activacion: Int?,
     val titulo_ficha: String?,
     val descripcion_hist: String?,
-    val dato_curioso: String?
+    val dato_curioso: String?,
+    var isFavorite: Boolean = false
 )

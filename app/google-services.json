@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "711056928385",
+    "project_id": "locus-344a5",
+    "storage_bucket": "locus-344a5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:711056928385:android:baf24667e039d09dd0e780",
+        "android_client_info": {
+          "package_name": "com.starcode.locus"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDaU0BTxT6h9RBa6auuosbLb9Yega5p-q8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

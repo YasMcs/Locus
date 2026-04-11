@@ -34,7 +34,7 @@ abstract class AppDatabase : RoomDatabase() {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
-                    "locus_db"
+                    "locus_v2_db"
                 )
                     // Esto ayuda a manejar cambios de esquema mientras desarrollas
                     .fallbackToDestructiveMigration()

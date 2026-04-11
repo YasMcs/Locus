@@ -10,10 +10,11 @@ activityCompose = "1.12.4"
 composeBom = "2024.09.00"
 runtime = "1.10.4"
 material3 = "1.4.0"
-firebaseAuthKtx = "24.0.1"
 foundation = "1.10.4"
 ui = "1.10.5"
-firebaseMessagingKtx = "25.0.1"
+firebaseAuthKtx = "23.1.0"
+firebaseMessagingKtx = "24.0.0"
+playServicesMeasurementApi = "22.0.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -36,6 +37,7 @@ firebase-auth-ktx = { group = "com.google.firebase", name = "firebase-auth-ktx",
 androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
 androidx-ui = { group = "androidx.compose.ui", name = "ui", version.ref = "ui" }
 firebase-messaging-ktx = { group = "com.google.firebase", name = "firebase-messaging-ktx", version.ref = "firebaseMessagingKtx" }
+play-services-measurement-api = { group = "com.google.android.gms", name = "play-services-measurement-api", version.ref = "playServicesMeasurementApi" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

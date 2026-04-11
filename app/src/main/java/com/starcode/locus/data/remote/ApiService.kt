@@ -3,6 +3,8 @@ package com.starcode.locus.data.remote
 import com.starcode.locus.data.entities.LugarEntity
 import com.starcode.locus.data.entities.CategoriaEntity
 import com.starcode.locus.data.remote.request.*
+import com.starcode.locus.data.remote.request.FavoritoRequest
+import com.starcode.locus.data.remote.request.FavoritoResponse
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import retrofit2.Response
@@ -29,7 +31,6 @@ interface LocusApiService {
     ): LugarEntity
 
     // --- IMÁGENES (Nuevas rutas para PostgreSQL) --
-    // 1. Sube la imagen y recibe el ID (Paso 1 y 2)
     @Multipart
     @POST("api/imagenes/subir")
     suspend fun subirImagen(
@@ -71,8 +72,34 @@ interface LocusApiService {
 
     // --- AUTH ---
     @POST("auth/register")
-    suspend fun registrarUsuario(@Body request: RegisterRequest): AuthResponse
+    suspend fun registrarUsuario(@Body request: RegisterRequest): Response<AuthResponse>
 
     @POST("auth/login")
-    suspend fun login(@Body loginRequest: LoginRequest): AuthResponse
+    suspend fun login(@Body loginRequest: LoginRequest): Response<AuthResponse>
+
+    // --- FAVORITOS ---
+    @GET("api/favoritos/usuario/{id}")
+    suspend fun obtenerFavoritosUsuario(
+        @Header("Authorization") token: String,
+        @Path("id") id: Int
+    ): List<FavoritoResponse>
+
+    @GET("api/favoritos/verificar")
+    suspend fun verificarFavorito(
+        @Header("Authorization") token: String,
+        @Query("id_usuario") idUsuario: Int,
+        @Query("id_lugar") idLugar: Int
+    ): FavoritoResponse?
+
+    @POST("api/favoritos")
+    suspend fun crearFavorito(
+        @Header("Authorization") token: String,
+        @Body request: FavoritoRequest
+    ): FavoritoResponse
+
+    @DELETE("api/favoritos/{id}")
+    suspend fun eliminarFavorito(
+        @Header("Authorization") token: String,
+        @Path("id") id: Int
+    ): Response<Unit>
 }

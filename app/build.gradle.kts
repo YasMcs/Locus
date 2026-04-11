@@ -68,6 +68,7 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:33.1.2"))
     implementation("com.google.firebase:firebase-messaging-ktx")
     implementation("com.google.firebase:firebase-auth-ktx")
+    implementation(libs.play.services.measurement.api)
 
     // --- BASE DE DATOS LOCAL (ROOM) ---
     val room_version = "2.6.1"

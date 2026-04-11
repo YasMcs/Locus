@@ -33,135 +33,150 @@ fun LoginScreen(
     var emailError by remember { mutableStateOf(false) }
     var passError by remember { mutableStateOf(false) }
 
-    // Paleta de colores Locus con alto contraste
+    // Paleta de colores Locus
     val LocusDeepPurple = Color(0xFF1D1B20)
     val LocusActionOrange = Color(0xFFE6673D)
     val LocusBackground = Color(0xFFFDF6EE)
     val LocusErrorRed = Color(0xFFB00020)
     val LocusSurfaceWhite = Color(0xFFFFFFFF)
+    val context = androidx.compose.ui.platform.LocalContext.current
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(LocusBackground)
-            .padding(horizontal = 32.dp)
-            .verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
     ) {
-        // Reemplaza el Text(text = "Kora"...) por esto:
-        Image(
-            painter = painterResource(id = com.starcode.locus.R.drawable.locuslogo),
-            contentDescription = "Logo Locus",
+        Column(
             modifier = Modifier
-                .size(200.dp) // Ajusta el tamaño aquí (120dp es un buen estándar)
-                .padding(bottom = 8.dp),
-            alignment = Alignment.Center
-        )
-
-        Text(
-            text = "Bienvenido de nuevo",
-            color = Color.Gray,
-            style = MaterialTheme.typography.bodyMedium
-        )
-
-        Spacer(modifier = Modifier.height(48.dp))
-
-        // --- CAMPO: EMAIL ---
-        OutlinedTextField(
-            value = email,
-            onValueChange = {
-                email = it
-                emailError = false
-            },
-            label = { Text("Correo electrónico") },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            singleLine = true,
-            isError = emailError || authState is AuthResult.Error,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = LocusDeepPurple,      // Letra oscura al escribir
-                unfocusedTextColor = LocusDeepPurple,    // Letra oscura siempre
-                focusedContainerColor = LocusSurfaceWhite, // Fondo blanco para contraste
-                unfocusedContainerColor = LocusSurfaceWhite,
-                focusedBorderColor = LocusActionOrange,
-                unfocusedBorderColor = Color(0xFFD1D1D1),
-                errorBorderColor = LocusErrorRed,
-                focusedLabelColor = LocusActionOrange,
-                unfocusedLabelColor = Color.Gray
-            )
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // --- CAMPO: CONTRASEÑA ---
-        OutlinedTextField(
-            value = pass,
-            onValueChange = {
-                pass = it
-                passError = false
-            },
-            label = { Text("Contraseña") },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-            isError = passError || authState is AuthResult.Error,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = LocusDeepPurple,
-                unfocusedTextColor = LocusDeepPurple,
-                focusedContainerColor = LocusSurfaceWhite,
-                unfocusedContainerColor = LocusSurfaceWhite,
-                focusedBorderColor = LocusActionOrange,
-                unfocusedBorderColor = Color(0xFFD1D1D1),
-                errorBorderColor = LocusErrorRed,
-                focusedLabelColor = LocusActionOrange,
-                unfocusedLabelColor = Color.Gray
-            )
-        )
-
-        if (authState is AuthResult.Error) {
-            Text(
-                text = "Credenciales incorrectas",
-                color = LocusErrorRed,
-                fontSize = 12.sp,
-                modifier = Modifier.padding(top = 8.dp).align(Alignment.Start)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        // --- BOTÓN DE ENTRAR ---
-        Button(
-            onClick = {
-                emailError = email.isBlank()
-                passError = pass.isBlank()
-                if (!emailError && !passError) onLogin(email, pass)
-            },
-            modifier = Modifier.fillMaxWidth().height(56.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = LocusActionOrange,
-                contentColor = Color.White,
-                disabledContainerColor = Color(0xFFCCCCCC),
-                disabledContentColor = Color.DarkGray
-            ),
-            enabled = authState !is AuthResult.Loading
+                .fillMaxSize()
+                // systemBars para notch/navegación + ime para el teclado
+                .windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.ime))
+                .padding(horizontal = 32.dp)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            if (authState is AuthResult.Loading) {
-                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
-            } else {
-                Text("Entrar", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            }
-        }
+            // Logo Locus
+            Image(
+                painter = painterResource(id = com.starcode.locus.R.drawable.locuslogo),
+                contentDescription = "Logo Locus",
+                modifier = Modifier
+                    .size(200.dp)
+                    .padding(bottom = 8.dp),
+                alignment = Alignment.Center
+            )
 
-        Spacer(modifier = Modifier.height(24.dp))
+            Text(
+                text = "Bienvenido de nuevo",
+                color = Color.Gray,
+                style = MaterialTheme.typography.bodyMedium
+            )
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("¿No tienes cuenta?", color = Color.Gray)
-            TextButton(onClick = onIrARegistrar) {
-                Text("Regístrate", color = LocusActionOrange, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(48.dp))
+
+            // --- CAMPO: EMAIL ---
+            OutlinedTextField(
+                value = email,
+                onValueChange = {
+                    email = it
+                    emailError = false
+                },
+                label = { Text("Correo electrónico") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                singleLine = true,
+                isError = emailError || authState is AuthResult.Error,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = LocusDeepPurple,
+                    unfocusedTextColor = LocusDeepPurple,
+                    focusedContainerColor = LocusSurfaceWhite,
+                    unfocusedContainerColor = LocusSurfaceWhite,
+                    focusedBorderColor = LocusActionOrange,
+                    unfocusedBorderColor = Color(0xFFD1D1D1),
+                    errorBorderColor = LocusErrorRed,
+                    focusedLabelColor = LocusActionOrange,
+                    unfocusedLabelColor = Color.Gray
+                )
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // --- CAMPO: CONTRASEÑA ---
+            OutlinedTextField(
+                value = pass,
+                onValueChange = {
+                    pass = it
+                    passError = false
+                },
+                label = { Text("Contraseña") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                isError = passError || authState is AuthResult.Error,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = LocusDeepPurple,
+                    unfocusedTextColor = LocusDeepPurple,
+                    focusedContainerColor = LocusSurfaceWhite,
+                    unfocusedContainerColor = LocusSurfaceWhite,
+                    focusedBorderColor = LocusActionOrange,
+                    unfocusedBorderColor = Color(0xFFD1D1D1),
+                    errorBorderColor = LocusErrorRed,
+                    focusedLabelColor = LocusActionOrange,
+                    unfocusedLabelColor = Color.Gray
+                )
+            )
+
+            if (authState is AuthResult.Error) {
+                Text(
+                    text = "Credenciales incorrectas",
+                    color = LocusErrorRed,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(top = 8.dp).align(Alignment.Start)
+                )
             }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // --- BOTÓN DE ENTRAR ---
+            Button(
+                onClick = {
+                    emailError = email.isBlank()
+                    passError = pass.isBlank()
+                    if (!emailError && !passError) {
+                        val sharedPref = context.getSharedPreferences("LocusPrefs", android.content.Context.MODE_PRIVATE)
+                        sharedPref.edit().putString("usuario_logueado", email).apply()
+                        onLogin(email, pass)
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = LocusActionOrange,
+                    contentColor = Color.White,
+                    disabledContainerColor = Color(0xFFCCCCCC),
+                    disabledContentColor = Color.DarkGray
+                ),
+                enabled = authState !is AuthResult.Loading
+            ) {
+                if (authState is AuthResult.Loading) {
+                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                } else {
+                    Text("Entrar", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("¿No tienes cuenta?", color = Color.Gray)
+                TextButton(onClick = onIrARegistrar) {
+                    Text("Regístrate", color = LocusActionOrange, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            // Espaciador para asegurar que el teclado no cubra el botón de registro al final
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }

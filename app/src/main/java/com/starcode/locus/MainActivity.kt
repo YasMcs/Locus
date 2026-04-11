@@ -1,5 +1,6 @@
 package com.starcode.locus
 
+import android.content.Context // ✅ Añadido para SharedPreferences
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -11,20 +12,19 @@ import androidx.compose.runtime.*
 import androidx.navigation.compose.rememberNavController
 import com.starcode.locus.data.database.AppDatabase
 import com.starcode.locus.data.remote.RetrofitClient
-import com.starcode.locus.ui.navigation.NavGraph
 import com.starcode.locus.ui.theme.LocusTheme
-import androidx.compose.ui.platform.LocalContext
 import com.google.firebase.messaging.FirebaseMessaging
+import com.starcode.locus.ui.screens.NavGraph
+import androidx.activity.enableEdgeToEdge
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState) // Llamado primero
+        enableEdgeToEdge()
+        super.onCreate(savedInstanceState)
 
-        // ✅ Solo una inicialización del cliente
         RetrofitClient.init(applicationContext)
         Log.d("LocusDebug", "✅ RetrofitClient inicializado")
 
-        // ✅ Configuración de OSMDroid
         org.osmdroid.config.Configuration.getInstance().load(
             applicationContext,
             getSharedPreferences("osmdroid", MODE_PRIVATE)
@@ -36,44 +36,59 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             LocusTheme {
-                // Aquí solo llamamos a una función que se encargue de TODOS los permisos
                 RequestAllPermissions()
                 val navController = rememberNavController()
                 NavGraph(navController = navController, dao = dao)
             }
         }
 
+        // --- LÓGICA DE FIREBASE ---
         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
             if (task.isSuccessful && task.result != null) {
                 val token = task.result
                 Log.d("FCM_Locus", "✅ Token obtenido: $token")
 
-                // SOLO enviamos si el token no es una cadena vacía
                 if (token.isNotEmpty()) {
-                    Thread {
-                        try {
-                            val nombreUsuario = "Yasleb"
-                            val url = java.net.URL("http://192.168.1.86:3000/register-token")
-                            val conn = url.openConnection() as java.net.HttpURLConnection
-                            conn.requestMethod = "POST"
-                            conn.setRequestProperty("Content-Type", "application/json")
-                            conn.doOutput = true
 
-                            // REVISA BIEN: la llave debe ser "nombre" para que el server lo lea
-                            val jsonInputString = "{\"username\": \"$nombreUsuario\", \"token\": \"$token\"}"
+                    val sharedPref = getSharedPreferences("LocusPrefs", Context.MODE_PRIVATE)
+                    val usuarioLogueado = sharedPref.getString("usuario_logueado", null)
 
-                            conn.outputStream.use { os ->
-                                os.write(jsonInputString.toByteArray(charset("utf-8")))
+
+                    if (usuarioLogueado != null) {
+                        Thread {
+                            try {
+                                // 2. Nueva URL de Railway proporcionada por tu backend
+                                val urlRailway = "https://locus-api-production-13fe.up.railway.app/api/users/update-token"
+                                val url = java.net.URL(urlRailway)
+
+                                val conn = url.openConnection() as java.net.HttpURLConnection
+                                conn.requestMethod = "POST"
+                                conn.setRequestProperty("Content-Type", "application/json")
+                                conn.doOutput = true
+
+                                // 3. El JSON ahora usa los campos exactos: username y token
+                                val jsonInputString = """
+                                    {
+                                        "username": "$usuarioLogueado",
+                                        "token": "$token"
+                                    }
+                                """.trimIndent()
+
+                                conn.outputStream.use { os ->
+                                    os.write(jsonInputString.toByteArray(charset("utf-8")))
+                                }
+
+                                Log.d("FCM_Locus", "✅ Registro en Railway exitoso ($usuarioLogueado): ${conn.responseCode}")
+                            } catch (e: Exception) {
+                                Log.e("FCM_Locus", "❌ Error al conectar con Railway: ${e.message}")
                             }
-
-                            Log.d("FCM_Locus", "Respuesta del servidor: ${conn.responseCode}")
-                        } catch (e: Exception) {
-                            Log.e("FCM_Locus", "Error: ${e.message}")
-                        }
-                    }.start()
+                        }.start()
+                    } else {
+                        Log.d("FCM_Locus", "ℹ️ Esperando a que el usuario inicie sesión para registrar token.")
+                    }
                 }
             } else {
-                Log.w("FCM_Locus", "Fallo al obtener el token o permiso pendiente")
+                Log.w("FCM_Locus", "⚠️ Fallo al obtener el token")
             }
         }
     }
@@ -93,7 +108,6 @@ fun RequestAllPermissions() {
             android.Manifest.permission.ACCESS_COARSE_LOCATION
         )
 
-        // Si es Android 13+, agregamos las notificaciones al mismo paquete de petición
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permissionsToRequest.add(android.Manifest.permission.POST_NOTIFICATIONS)
         }
