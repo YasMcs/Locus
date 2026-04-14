@@ -28,7 +28,6 @@ fun WelcomeScreen(
     onNavigateToLogin: () -> Unit,
     onNavigateToRegistro: () -> Unit
 ) {
-    // Definición de colores
     val LocusDeepPurple = Color(0xFF1D1B20)
     val LocusActionOrange = Color(0xFFE6673D)
     val LocusBackground = Color(0xFFFDF6EE)
@@ -38,134 +37,120 @@ fun WelcomeScreen(
             .fillMaxSize()
             .background(LocusBackground)
     ) {
-        // 1. Imagen de fondo (Edge-to-Edge total: llega hasta arriba del todo)
+        // 1. Ilustración de fondo (Aumentamos el impacto visual)
         Image(
             painter = painterResource(id = R.drawable.locus_illustration),
             contentDescription = null,
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.7f)
+                .fillMaxHeight(0.65f) // Un poco menos para dar aire al texto
                 .align(Alignment.TopCenter),
             contentScale = ContentScale.Crop
         )
 
-        // 2. Capa de Degradado para suavizar la transición con el fondo
+        // 2. Degradado más profundo (Mejora la legibilidad del texto)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.5f)
-                .align(Alignment.Center)
+                .fillMaxHeight(0.6f)
+                .align(Alignment.BottomCenter)
                 .background(
                     brush = Brush.verticalGradient(
                         colors = listOf(
                             Color.Transparent,
-                            LocusBackground.copy(alpha = 0.6f),
+                            LocusBackground.copy(alpha = 0.9f),
                             LocusBackground
                         )
                     )
                 )
         )
 
-        // 3. Contenido Principal (Protegido por WindowInsets)
+        // 3. Contenido Principal
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                // Esto evita que el contenido quede debajo del Notch o de la barra de navegación
                 .windowInsetsPadding(WindowInsets.systemBars)
-                .padding(horizontal = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(horizontal = 28.dp), // Un poco más de margen lateral
+            horizontalAlignment = Alignment.Start // Alineación natural de lectura
         ) {
-            // Empujamos el contenido hacia abajo dinámicamente
-            Spacer(modifier = Modifier.weight(0.9f))
+            Spacer(modifier = Modifier.weight(1f))
 
-            // Título y Eslogan
+            // Título con estilo Premium
             Text(
                 text = "Locus",
-                modifier = Modifier.fillMaxWidth(),
-                style = MaterialTheme.typography.displayMedium.copy(
-                    fontWeight = FontWeight.ExtraBold,
+                style = MaterialTheme.typography.displayLarge.copy(
+                    fontWeight = FontWeight.Black, // Más peso
                     color = LocusDeepPurple,
-                    letterSpacing = (-2).sp
+                    letterSpacing = (-3).sp
                 )
             )
 
             Text(
-                text = "Cultura al instante. camina, descubre y aprende.",
-                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                style = MaterialTheme.typography.bodyLarge.copy(
+                text = "Cultura al instante.\nCamina, descubre y aprende.",
+                style = MaterialTheme.typography.headlineSmall.copy(
                     color = Color.Gray,
-                    lineHeight = 22.sp
+                    fontWeight = FontWeight.Medium,
+                    lineHeight = 28.sp
                 )
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
-            // Fila de tarjetas (Feature Cards)
+            // Fila de tarjetas (Estilo unificado con el Dashboard)
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 FeatureCard(
                     icon = Icons.Default.NotificationsActive,
-                    text = "Recibe\nalertas",
-                    backgroundColor = Color.White,
+                    text = "Alertas",
                     iconColor = LocusActionOrange
                 )
                 FeatureCard(
                     icon = Icons.Default.LocationOn,
-                    text = "Descubre\nlugares",
-                    backgroundColor = Color.White,
+                    text = "Lugares",
                     iconColor = LocusActionOrange
                 )
                 FeatureCard(
                     icon = Icons.Default.Explore,
-                    text = "Explora la\nhistoria",
-                    backgroundColor = Color.White,
+                    text = "Historia",
                     iconColor = LocusActionOrange
                 )
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(40.dp))
 
-            // --- BOTÓN PRINCIPAL (Registro) ---
+            // --- BOTONERÍA (Más alta y redondeada) ---
             Button(
                 onClick = onNavigateToRegistro,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = LocusActionOrange)
+                    .height(60.dp), // Altura premium
+                shape = RoundedCornerShape(20.dp), // Consistente con las cards
+                colors = ButtonDefaults.buttonColors(containerColor = LocusActionOrange),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
             ) {
                 Text(
-                    text = "Comenzar a explorar",
+                    text = "Comenzar aventura",
                     style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.ExtraBold,
                         color = Color.White
                     )
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // --- BOTÓN SECUNDARIO (Login) ---
-            OutlinedButton(
+            TextButton(
                 onClick = onNavigateToLogin,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(16.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, LocusActionOrange),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = LocusActionOrange)
+                modifier = Modifier.fillMaxWidth().height(56.dp)
             ) {
-                Text(
-                    text = "Ya tengo una cuenta",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.SemiBold
-                    )
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Ya tengo una cuenta. ", color = Color.Gray)
+                    Text("Iniciar sesión", color = LocusActionOrange, fontWeight = FontWeight.Bold)
+                }
             }
 
-            // Espacio final para que no quede pegado al borde inferior
             Spacer(modifier = Modifier.height(24.dp))
         }
     }
@@ -175,19 +160,19 @@ fun WelcomeScreen(
 fun RowScope.FeatureCard(
     icon: ImageVector,
     text: String,
-    backgroundColor: Color,
     iconColor: Color
 ) {
-    Card(
+    // Usamos Surface para un control más fino de sombras y bordes (como en Stats)
+    Surface(
         modifier = Modifier
             .weight(1f)
-            .aspectRatio(0.9f),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = backgroundColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            .aspectRatio(1f),
+        shape = RoundedCornerShape(24.dp), // Esquinas más suaves (ADN Locus)
+        color = Color.White,
+        shadowElevation = 2.dp
     ) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(8.dp),
+            modifier = Modifier.fillMaxSize().padding(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -195,17 +180,15 @@ fun RowScope.FeatureCard(
                 imageVector = icon,
                 contentDescription = null,
                 tint = iconColor,
-                modifier = Modifier.size(28.dp)
+                modifier = Modifier.size(32.dp)
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = text,
                 textAlign = TextAlign.Center,
-                style = MaterialTheme.typography.labelSmall.copy(
-                    color = Color.DarkGray,
-                    fontWeight = FontWeight.SemiBold,
-                    lineHeight = 14.sp
-                )
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1D1B20)
             )
         }
     }

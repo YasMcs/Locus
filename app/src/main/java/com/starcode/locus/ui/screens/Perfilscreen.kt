@@ -37,7 +37,6 @@ fun PerfilScreen(
     val usuario by authViewModel.usuarioLogueado.collectAsState()
     var modoEdicion by remember { mutableStateOf(false) }
 
-    // Estados de edición
     var nombreEdit by remember { mutableStateOf("") }
     var passEdit by remember { mutableStateOf("") }
     var passVisible by remember { mutableStateOf(false) }
@@ -54,19 +53,19 @@ fun PerfilScreen(
         val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.doggy))
         val progress by animateLottieCompositionAsState(composition, iterations = LottieConstants.IterateForever)
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(LocusBackground)
-                .windowInsetsPadding(WindowInsets.systemBars),
+            modifier = Modifier.fillMaxSize().background(LocusBackground),
             contentAlignment = Alignment.Center
         ) {
             LottieAnimation(composition = composition, progress = { progress }, modifier = Modifier.size(200.dp))
         }
     } else {
         Scaffold(
+            containerColor = LocusBackground,
             topBar = {
                 CenterAlignedTopAppBar(
-                    title = { Text("Mi Perfil", fontWeight = FontWeight.Black, color = LocusDeepPurple) },
+                    title = {
+                        Text("MI PERFIL", fontWeight = FontWeight.Black, color = LocusDeepPurple, letterSpacing = 1.sp)
+                    },
                     navigationIcon = {
                         IconButton(onClick = onNavigateBack) {
                             Icon(Icons.Default.ArrowBack, contentDescription = null, tint = LocusDeepPurple)
@@ -81,111 +80,146 @@ fun PerfilScreen(
                             )
                         }
                     },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.White),
-                    modifier = Modifier.shadow(4.dp)
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
                 )
-            },
-            containerColor = LocusBackground
+            }
         ) { padding ->
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    // Añadimos padding para el teclado (IME) para que no tape los campos al editar
                     .windowInsetsPadding(WindowInsets.ime)
                     .verticalScroll(rememberScrollState())
-                    .padding(24.dp),
+                    .padding(horizontal = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Avatar dinámico
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // --- AVATAR CON SOMBRA ---
                 val avatarRes = when (usuario?.genero?.lowercase()) {
                     "femenino", "mujer" -> R.drawable.girl1
                     "masculino", "hombre" -> R.drawable.boy1
                     else -> R.drawable.boy2
                 }
 
-                Image(
-                    painter = painterResource(id = avatarRes),
-                    contentDescription = null,
+                Box(
                     modifier = Modifier
-                        .size(120.dp)
-                        .clip(CircleShape)
-                        .background(Color.White)
-                        .padding(8.dp)
-                )
+                        .size(140.dp)
+                        .shadow(12.dp, CircleShape)
+                        .background(Color.White, CircleShape)
+                        .padding(6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(id = avatarRes),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize().clip(CircleShape)
+                    )
+                }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
                 Text(
-                    text = if (modoEdicion) "Editando Información" else "${usuario?.nombre} ${usuario?.ape_pa}",
-                    fontSize = if (modoEdicion) 16.sp else 24.sp,
-                    fontWeight = FontWeight.Black,
-                    color = if (modoEdicion) LocusActionOrange else LocusDeepPurple
+                    text = if (modoEdicion) "Configuración de Perfil" else "${usuario?.nombre} ${usuario?.ape_pa}",
+                    fontSize = 26.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = LocusDeepPurple
                 )
 
-                Spacer(modifier = Modifier.height(32.dp))
-
-                // Nombre
-                EditableInfoCard(
-                    label = "Nombre",
-                    value = nombreEdit,
-                    isEditing = modoEdicion,
-                    onValueChange = { nombreEdit = it },
-                    icon = Icons.Default.Person
+                Text(
+                    text = usuario?.email ?: "",
+                    fontSize = 14.sp,
+                    color = Color.Gray
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(40.dp))
 
-                // Email
-                InfoCard(label = "Correo Electrónico", value = usuario?.email ?: "", icon = Icons.Default.Email)
+                // --- TARJETA DE INFORMACIÓN AGRUPADA ---
+                Surface(
+                    color = Color.White,
+                    shape = RoundedCornerShape(28.dp),
+                    shadowElevation = 2.dp,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text(
+                            "Tus Datos Locus",
+                            fontWeight = FontWeight.Bold,
+                            color = LocusActionOrange,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(bottom = 16.dp)
+                        )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                        // Nombre
+                        ProfileItem(
+                            label = "Nombre de usuario",
+                            value = nombreEdit,
+                            isEditing = modoEdicion,
+                            onValueChange = { nombreEdit = it },
+                            icon = Icons.Default.Person
+                        )
 
-                // Contraseña
-                EditableInfoCard(
-                    label = "Contraseña",
-                    value = passEdit,
-                    isEditing = modoEdicion,
-                    onValueChange = { passEdit = it },
-                    icon = Icons.Default.Lock,
-                    isPassword = true,
-                    passwordVisible = passVisible,
-                    onPasswordToggle = { passVisible = !passVisible }
-                )
+                        Divider(modifier = Modifier.padding(vertical = 12.dp), color = LocusBackground, thickness = 1.dp)
+
+                        // Correo (Siempre lectura)
+                        ProfileItem(
+                            label = "Correo Electrónico",
+                            value = usuario?.email ?: "",
+                            isEditing = false,
+                            onValueChange = {},
+                            icon = Icons.Default.Email
+                        )
+
+                        Divider(modifier = Modifier.padding(vertical = 12.dp), color = LocusBackground, thickness = 1.dp)
+
+                        // Contraseña
+                        ProfileItem(
+                            label = "Contraseña",
+                            value = passEdit,
+                            isEditing = modoEdicion,
+                            onValueChange = { passEdit = it },
+                            icon = Icons.Default.Lock,
+                            isPassword = true,
+                            passwordVisible = passVisible,
+                            onPasswordToggle = { passVisible = !passVisible }
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(40.dp))
 
                 if (modoEdicion) {
-                    Spacer(modifier = Modifier.height(32.dp))
                     Button(
                         onClick = { modoEdicion = false },
-                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        modifier = Modifier.fillMaxWidth().height(60.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = LocusActionOrange),
-                        shape = RoundedCornerShape(16.dp)
+                        shape = RoundedCornerShape(20.dp),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
                     ) {
-                        Text("Guardar Cambios", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text("Guardar cambios", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
                     }
                 } else {
-                    Spacer(modifier = Modifier.height(48.dp))
                     TextButton(
                         onClick = {
                             authViewModel.cerrarSesion()
                             onLogoutNavigation()
                         },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth().height(56.dp)
                     ) {
                         Icon(Icons.Default.ExitToApp, contentDescription = null, tint = Color.Red)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Cerrar Sesión", color = Color.Red, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.width(12.dp))
+                        Text("Cerrar Sesión", color = Color.Red, fontWeight = FontWeight.ExtraBold)
                     }
-                    // Espaciador final para que no quede pegado a la barra de gestos inferior
-                    Spacer(modifier = Modifier.height(24.dp))
                 }
+
+                Spacer(modifier = Modifier.height(32.dp))
             }
         }
     }
 }
 
 @Composable
-fun EditableInfoCard(
+fun ProfileItem(
     label: String,
     value: String,
     isEditing: Boolean,
@@ -195,86 +229,56 @@ fun EditableInfoCard(
     passwordVisible: Boolean = false,
     onPasswordToggle: () -> Unit = {}
 ) {
-    Surface(
+    Row(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        color = Color.White,
-        shadowElevation = 2.dp
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = if (isEditing) 4.dp else 16.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Box(
+            modifier = Modifier.size(40.dp).background(Color(0xFFFDF6EE), CircleShape),
+            contentAlignment = Alignment.Center
         ) {
             Icon(icon, null, tint = Color(0xFFE6673D), modifier = Modifier.size(20.dp))
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(label, fontSize = 11.sp, color = Color.DarkGray)
-
-                if (isEditing) {
-                    TextField(
-                        value = value,
-                        onValueChange = onValueChange,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .offset(x = (-16).dp),
-                        visualTransformation = if (isPassword && !passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
-                        colors = TextFieldDefaults.colors(
-                            focusedTextColor = Color(0xFF1D1B20),
-                            unfocusedTextColor = Color(0xFF1D1B20),
-                            focusedContainerColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent,
-                            cursorColor = Color(0xFFE6673D),
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent,
-                        ),
-                        placeholder = {
-                            Text(
-                                text = if(isPassword) "Nueva contraseña" else "Escribe tu nombre",
-                                fontSize = 16.sp,
-                                color = Color.Gray
-                            )
-                        },
-                        singleLine = true,
-                        trailingIcon = if (isPassword) {
-                            {
-                                IconButton(onClick = onPasswordToggle) {
-                                    Icon(
-                                        imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                        contentDescription = null,
-                                        tint = Color(0xFFE6673D)
-                                    )
-                                }
-                            }
-                        } else null
-                    )
-                } else {
-                    Text(
-                        text = if (isPassword) "••••••••" else value,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1D1B20)
-                    )
-                }
-            }
         }
-    }
-}
 
-@Composable
-fun InfoCard(label: String, value: String, icon: ImageVector) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        color = Color.White,
-        shadowElevation = 2.dp
-    ) {
-        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null, tint = Color(0xFFE6673D), modifier = Modifier.size(20.dp))
-            Spacer(modifier = Modifier.width(16.dp))
-            Column {
-                Text(label, fontSize = 11.sp, color = Color.Gray)
-                Text(value, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1D1B20))
+        Spacer(modifier = Modifier.width(16.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(label, fontSize = 11.sp, color = Color.Gray, fontWeight = FontWeight.Medium)
+
+            if (isEditing) {
+                TextField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    modifier = Modifier.fillMaxWidth().offset(x = (-16).dp),
+                    visualTransformation = if (isPassword && !passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        cursorColor = Color(0xFFE6673D),
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                    ),
+                    placeholder = { Text(if(isPassword) "••••••••" else "Escribe aquí...", color = Color.LightGray) },
+                    singleLine = true,
+                    trailingIcon = if (isPassword) {
+                        {
+                            IconButton(onClick = onPasswordToggle) {
+                                Icon(
+                                    imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                    contentDescription = null,
+                                    tint = Color(0xFFE6673D)
+                                )
+                            }
+                        }
+                    } else null
+                )
+            } else {
+                Text(
+                    text = if (isPassword) "••••••••" else value,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1D1B20)
+                )
             }
         }
     }

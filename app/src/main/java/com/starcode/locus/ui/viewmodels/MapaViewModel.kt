@@ -45,7 +45,7 @@ class MapaViewModel(application: Application, private val dao: LocusDao) : Andro
     // --- VARIABLES DE ESTADO PARA UBICACIÓN Y CONTROL DE BUCLE ---
     private var usuarioLat = 0.0
     private var usuarioLon = 0.0
-    private var ultimaNotificacionEnviada = "" // Freno para el bucle de "la plana"
+    private var ultimaNotificacionEnviada = ""
 
     init {
         cargarLugares()

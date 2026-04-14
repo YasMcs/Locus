@@ -1,7 +1,6 @@
 package com.starcode.locus.ui.screens
 
 import android.app.Application
-import android.util.Log
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModel
@@ -12,11 +11,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.starcode.locus.data.dao.LocusDao
 import com.starcode.locus.data.remote.SessionManager
-import com.starcode.locus.ui.screens.*
-import com.starcode.locus.ui.viewmodels.AuthViewModel
-import com.starcode.locus.ui.viewmodels.AuthResult
-import com.starcode.locus.ui.viewmodels.EdadViewModel
-import com.starcode.locus.ui.viewmodels.MapaViewModel
+import com.starcode.locus.ui.viewmodels.*
 
 @Composable
 fun NavGraph(navController: NavHostController, dao: LocusDao) {
@@ -24,6 +19,7 @@ fun NavGraph(navController: NavHostController, dao: LocusDao) {
     val application = context.applicationContext as Application
     val sessionManager = remember { SessionManager(application) }
 
+    // Lógica de inicio de sesión y validación de edad
     val estaLogueado = sessionManager.obtenerToken() != null
     val edadYaValidada = sessionManager.esEdadValidada()
 
@@ -33,7 +29,9 @@ fun NavGraph(navController: NavHostController, dao: LocusDao) {
         else -> "welcome"
     }
 
-    // ViewModels principales
+    // --- VIEWMODELS CON FACTORIES ---
+
+    // AuthViewModel (Necesita Application y DAO)
     val authViewModel: AuthViewModel = viewModel(
         factory = object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -42,7 +40,7 @@ fun NavGraph(navController: NavHostController, dao: LocusDao) {
         }
     )
 
-    // Declaramos MapaViewModel aquí afuera para que "mapa" y "favoritos" lo compartan
+    // MapaViewModel (Necesita Application y DAO)
     val mapaViewModel: MapaViewModel = viewModel(
         factory = object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -77,8 +75,6 @@ fun NavGraph(navController: NavHostController, dao: LocusDao) {
 
         composable(route = "registro") {
             val fechaParaDB by edadViewModel.fechaParaDB.collectAsState()
-            val authState by authViewModel.authState.collectAsState()
-
             RegistroScreen(
                 viewModel = authViewModel,
                 onIrALogin = { navController.navigate("login") },
@@ -119,7 +115,8 @@ fun NavGraph(navController: NavHostController, dao: LocusDao) {
                 sessionManager = sessionManager,
                 onNavigateToPerfil = { navController.navigate("perfil") },
                 onNavigateToRecuerdos = { navController.navigate("recuerdos") },
-                onNavigateToFavoritos = { navController.navigate("favoritos") }
+                onNavigateToFavoritos = { navController.navigate("favoritos") },
+                onNavigateToEstadisticas = { navController.navigate("estadisticas") }
             )
         }
 
@@ -130,31 +127,47 @@ fun NavGraph(navController: NavHostController, dao: LocusDao) {
             )
         }
 
+        composable("estadisticas") {
+            val estadisticasViewModel: EstadisticasViewModel = viewModel(
+                factory = GenericViewModelFactory { EstadisticasViewModel(sessionManager) }
+            )
+            EstadisticasScreen(
+                viewModel = estadisticasViewModel,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
         composable("perfil") {
             PerfilScreen(
                 authViewModel = authViewModel,
                 onNavigateBack = { navController.popBackStack() },
                 onLogoutNavigation = {
                     navController.navigate("login") {
-                        popUpTo("mapa") { inclusive = true } // Cambiado a mapa para limpiar todo
+                        popUpTo("mapa") { inclusive = true }
                     }
                 }
             )
         }
 
         composable("recuerdos") {
-            val recuerdosViewModel: com.starcode.locus.ui.viewmodels.RecuerdosViewModel = viewModel(
-                factory = object : ViewModelProvider.Factory {
-                    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                        return com.starcode.locus.ui.viewmodels.RecuerdosViewModel(sessionManager) as T
-                    }
-                }
+            val recuerdosViewModel: RecuerdosViewModel = viewModel(
+                factory = GenericViewModelFactory { RecuerdosViewModel(sessionManager) }
             )
-
             RecuerdosScreen(
                 viewModel = recuerdosViewModel,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
+    }
+}
+
+/**
+ * Una fábrica genérica para simplificar la creación de ViewModels que solo
+ * necesitan el SessionManager o dependencias simples.
+ */
+class GenericViewModelFactory<T : ViewModel>(private val creator: () -> T) : ViewModelProvider.Factory {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        return creator() as T
     }
 }

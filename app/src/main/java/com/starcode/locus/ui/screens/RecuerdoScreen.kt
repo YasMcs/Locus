@@ -41,7 +41,6 @@ fun RecuerdosScreen(
 ) {
     val imagenes by viewModel.imagenes.collectAsState()
     val estaCargando by viewModel.estaCargando.collectAsState()
-
     var imagenSeleccionada by remember { mutableStateOf<ImagenResponse?>(null) }
     val context = LocalContext.current
 
@@ -56,168 +55,198 @@ fun RecuerdosScreen(
         viewModel.cargarRecuerdos()
     }
 
+
     Scaffold(
         containerColor = LocusBackground,
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
                     Text(
-                        "Mis Recuerdos",
+                        "MIS MOMENTOS",
                         fontWeight = FontWeight.Black,
-                        color = LocusDeepPurple
+                        color = LocusDeepPurple,
+                        letterSpacing = 1.sp
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            Icons.Default.ArrowBack,
-                            contentDescription = "Regresar",
-                            tint = LocusDeepPurple
-                        )
+                        Icon(Icons.Default.ArrowBack, "Regresar", tint = LocusDeepPurple)
                     }
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = LocusBackground
-                )
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
             )
         }
     ) { padding ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            if (estaCargando) {
-                Column(
-                    modifier = Modifier.align(Alignment.Center),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    LottieAnimation(
-                        composition = composition,
-                        progress = { progress },
-                        modifier = Modifier.size(160.dp)
-                    )
-                    Text(
-                        "Buscando tus momentos...",
-                        color = LocusDeepPurple,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            } else if (imagenes.isEmpty()) {
-                Column(
-                    modifier = Modifier.align(Alignment.Center),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Icon(Icons.Default.PhotoLibrary, null, modifier = Modifier.size(64.dp), tint = Color.Gray)
-                    Spacer(Modifier.height(8.dp))
-                    Text("Aún no tienes recuerdos", color = Color.Gray)
-
-                    TextButton(onClick = { viewModel.cargarRecuerdos() }) {
-                        Text("Actualizar galería", color = LocusActionOrange)
-                    }
-                }
-            } else {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 32.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(imagenes) { foto ->
-                        Card(
-                            modifier = Modifier
-                                .aspectRatio(1f)
-                                .clickable { imagenSeleccionada = foto },
-                            shape = RoundedCornerShape(12.dp),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                        ) {
-                            AsyncImage(
-                                model = foto.url_imagen,
-                                contentDescription = null,
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
-                            )
-                        }
-                    }
-                }
+            // --- ENCABEZADO ESTILO DASHBOARD (Elimina el vacío visual) ---
+            Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)) {
+                Text(
+                    text = "Tu Galería Locus",
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = LocusDeepPurple
+                )
+                Text(
+                    text = if (imagenes.isNotEmpty()) "Has capturado ${imagenes.size} recuerdos inolvidables."
+                    else "Tu historia está esperando ser escrita.",
+                    fontSize = 14.sp,
+                    color = Color.Gray
+                )
             }
 
-            // --- DIÁLOGO PARA VER EN GRANDE ---
-            if (imagenSeleccionada != null) {
-                Dialog(
-                    onDismissRequest = { imagenSeleccionada = null },
-                    properties = DialogProperties(
-                        usePlatformDefaultWidth = false,
-                        decorFitsSystemWindows = false
-                    )
-                ) {
-                    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-                        AsyncImage(
-                            model = imagenSeleccionada?.url_imagen,
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxSize().align(Alignment.Center),
-                            contentScale = ContentScale.Fit
+            Box(modifier = Modifier.fillMaxSize()) {
+                if (estaCargando) {
+                    Column(
+                        modifier = Modifier.align(Alignment.Center),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        LottieAnimation(
+                            composition = composition,
+                            progress = { progress },
+                            modifier = Modifier.size(160.dp)
                         )
+                        Text("Buscando tus momentos...", color = LocusDeepPurple, fontWeight = FontWeight.Bold)
+                    }
+                } else if (imagenes.isEmpty()) {
+                    Column(
+                        modifier = Modifier.align(Alignment.Center),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(Icons.Default.PhotoLibrary, null, modifier = Modifier.size(64.dp), tint = Color.LightGray)
+                        Spacer(Modifier.height(12.dp))
+                        Text("Aún no tienes recuerdos", color = Color.Gray)
+                        TextButton(onClick = { viewModel.cargarRecuerdos() }) {
+                            Text("Actualizar galería", color = LocusActionOrange, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                } else {
+                    // --- GRID DE 2 COLUMNAS (Más grande, llena más la pantalla) ---
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(2),
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 32.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        items(imagenes) { foto ->
+                            Surface(
+                                modifier = Modifier
+                                    .aspectRatio(0.85f)
+                                    .clickable { imagenSeleccionada = foto },
+                                shape = RoundedCornerShape(24.dp),
+                                shadowElevation = 4.dp,
+                                color = Color.White
+                            ) {
+                                Box {
+                                    AsyncImage(
+                                        model = foto.url_imagen,
+                                        contentDescription = null,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
+                                    )
 
-                        // Gradiente superior para visibilidad de texto
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(160.dp)
-                                .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.8f), Color.Transparent)))
-                                .align(Alignment.TopCenter)
-                        )
+                                    // Overlay inferior para el nombre del lugar
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .align(Alignment.BottomCenter)
+                                            .background(
+                                                Brush.verticalGradient(
+                                                    listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f))
+                                                )
+                                            )
+                                            .padding(12.dp)
+                                    ) {
+                                        Text(
+                                            text = foto.nombre_lugar ?: "Lugar",
+                                            color = Color.White,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            maxLines = 1
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
 
-                        // Información del lugar
-                        Column(
-                            modifier = Modifier
-                                .align(Alignment.TopStart)
-                                .windowInsetsPadding(WindowInsets.statusBars)
-                                .padding(top = 16.dp, start = 20.dp, end = 60.dp)
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.LocationOn, null, tint = LocusActionOrange, modifier = Modifier.size(22.dp))
-                                Spacer(Modifier.width(6.dp))
+                // --- DIÁLOGO DE VISTA PREVIA (Mantenemos tu lógica funcional pero con estilo) ---
+                if (imagenSeleccionada != null) {
+                    Dialog(
+                        onDismissRequest = { imagenSeleccionada = null },
+                        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
+                    ) {
+                        Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+                            AsyncImage(
+                                model = imagenSeleccionada?.url_imagen,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize().align(Alignment.Center),
+                                contentScale = ContentScale.Fit
+                            )
+
+                            // Header del Dialog
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(180.dp)
+                                    .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.8f), Color.Transparent)))
+                                    .align(Alignment.TopCenter)
+                            )
+
+                            Column(
+                                modifier = Modifier
+                                    .align(Alignment.TopStart)
+                                    .windowInsetsPadding(WindowInsets.statusBars)
+                                    .padding(top = 16.dp, start = 20.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.LocationOn, null, tint = LocusActionOrange, modifier = Modifier.size(22.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        text = imagenSeleccionada?.nombre_lugar ?: "Lugar Explorador",
+                                        color = Color.White,
+                                        fontSize = 24.sp,
+                                        fontWeight = FontWeight.ExtraBold
+                                    )
+                                }
+                                val fechaCorta = imagenSeleccionada?.fecha_subida?.split("T")?.get(0) ?: "Reciente"
                                 Text(
-                                    text = imagenSeleccionada?.nombre_lugar ?: "Lugar Explorador",
-                                    color = Color.White,
-                                    fontSize = 22.sp,
-                                    fontWeight = FontWeight.ExtraBold
+                                    text = "Capturado el $fechaCorta",
+                                    color = Color.White.copy(alpha = 0.7f),
+                                    fontSize = 14.sp,
+                                    modifier = Modifier.padding(start = 30.dp)
                                 )
                             }
-                            val fechaCorta = imagenSeleccionada?.fecha_subida?.split("T")?.get(0) ?: "Reciente"
-                            Text(
-                                text = "Capturado el $fechaCorta",
-                                color = Color.White.copy(alpha = 0.7f),
-                                fontSize = 14.sp,
-                                modifier = Modifier.padding(start = 28.dp)
-                            )
-                        }
 
-                        // Botón Cerrar
-                        IconButton(
-                            onClick = { imagenSeleccionada = null },
-                            modifier = Modifier.align(Alignment.TopEnd).windowInsetsPadding(WindowInsets.statusBars).padding(top = 8.dp, end = 10.dp)
-                        ) {
-                            Icon(Icons.Default.Close, null, tint = Color.White, modifier = Modifier.size(30.dp))
-                        }
+                            IconButton(
+                                onClick = { imagenSeleccionada = null },
+                                modifier = Modifier.align(Alignment.TopEnd).windowInsetsPadding(WindowInsets.statusBars).padding(16.dp)
+                            ) {
+                                Icon(Icons.Default.Close, null, tint = Color.White, modifier = Modifier.size(32.dp))
+                            }
 
-                        // Botón Descargar
-                        Button(
-                            onClick = { descargarImagen(context, imagenSeleccionada?.url_imagen ?: "") },
-                            modifier = Modifier
-                                .windowInsetsPadding(WindowInsets.navigationBars)
-                                .padding(bottom = 20.dp)
-                                .height(56.dp)
-                                .fillMaxWidth(0.7f)
-                                .align(Alignment.BottomCenter),
-                            colors = ButtonDefaults.buttonColors(containerColor = LocusActionOrange),
-                            shape = RoundedCornerShape(28.dp)
-                        ) {
-                            Icon(Icons.Default.Download, null, tint = Color.White)
-                            Spacer(Modifier.width(10.dp))
-                            Text("GUARDAR EN GALERÍA", fontWeight = FontWeight.Bold, color = Color.White)
+                            // Botón de acción (Download)
+                            Button(
+                                onClick = { descargarImagen(context, imagenSeleccionada?.url_imagen ?: "") },
+                                modifier = Modifier
+                                    .windowInsetsPadding(WindowInsets.navigationBars)
+                                    .padding(bottom = 32.dp)
+                                    .height(60.dp)
+                                    .fillMaxWidth(0.8f)
+                                    .align(Alignment.BottomCenter),
+                                colors = ButtonDefaults.buttonColors(containerColor = LocusActionOrange),
+                                shape = RoundedCornerShape(30.dp),
+                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
+                            ) {
+                                Icon(Icons.Default.Download, null, tint = Color.White)
+                                Spacer(Modifier.width(12.dp))
+                                Text("GUARDAR EN EL TELÉFONO", fontWeight = FontWeight.ExtraBold, letterSpacing = 0.5.sp, color = Color.White)
+                            }
                         }
                     }
                 }
@@ -239,7 +268,7 @@ fun descargarImagen(context: Context, url: String) {
         val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         downloadManager.enqueue(request)
 
-        Toast.makeText(context, "Descarga iniciada", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, "Iniciando descarga...", Toast.LENGTH_SHORT).show()
     } catch (e: Exception) {
         Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
     }

@@ -5,9 +5,12 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cake
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -31,7 +34,6 @@ fun EdadScreen(
     var mostrarError by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
-    // Paleta de colores Locus
     val LocusDeepPurple = Color(0xFF1D1B20)
     val LocusActionOrange = Color(0xFFE6673D)
     val LocusBackground = Color(0xFFFDF6EE)
@@ -44,13 +46,10 @@ fun EdadScreen(
             fechaVisible = "$day/${month + 1}/$year"
             val hoy = java.util.Calendar.getInstance()
             var edad = hoy.get(java.util.Calendar.YEAR) - year
-
             if (hoy.get(java.util.Calendar.MONTH) < month ||
                 (hoy.get(java.util.Calendar.MONTH) == month && hoy.get(java.util.Calendar.DAY_OF_MONTH) < day)) {
                 edad--
             }
-
-            // Formato exacto para la DB: YYYY-MM-DD
             val fechaFormateada = "%04d-%02d-%02d".format(year, month + 1, day)
             viewModel.actualizarFecha(fechaFormateada, edad)
             mostrarError = false
@@ -66,70 +65,98 @@ fun EdadScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                // Evita que el contenido choque con Notch o barra de gestos
                 .windowInsetsPadding(WindowInsets.systemBars)
-                .padding(32.dp)
+                .padding(horizontal = 32.dp)
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
+            // --- ICONO DE BIENVENIDA (Llena el espacio superior) ---
+            Box(
+                modifier = Modifier
+                    .size(100.dp)
+                    .background(LocusActionOrange.copy(alpha = 0.1f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.Cake,
+                    contentDescription = null,
+                    tint = LocusActionOrange,
+                    modifier = Modifier.size(48.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
             Text(
                 text = "¿Cuándo naciste?",
-                fontSize = 28.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = LocusDeepPurple,
-                letterSpacing = (-1).sp
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontWeight = FontWeight.Black,
+                    color = LocusDeepPurple,
+                    letterSpacing = (-1).sp
+                )
             )
 
             Text(
-                text = "Debes ser mayor de edad para vivir la experiencia Locus.",
+                text = "Para vivir la experiencia Locus, necesitamos verificar que eres mayor de edad.",
                 color = Color.Gray,
-                fontSize = 16.sp,
+                fontSize = 15.sp,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 8.dp)
+                modifier = Modifier.padding(top = 8.dp).padding(horizontal = 8.dp)
             )
 
             Spacer(modifier = Modifier.height(48.dp))
 
-            // --- SELECTOR DE FECHA ---
-            OutlinedButton(
-                onClick = { datePickerDialog.show() },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(60.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    containerColor = LocusSurfaceWhite,
-                    contentColor = LocusDeepPurple
-                ),
-                border = BorderStroke(
-                    width = if (mostrarError) 2.dp else 1.dp,
-                    color = if (mostrarError) LocusErrorRed else Color(0xFFD1D1D1)
-                )
+            // --- SELECTOR ENVOLVENTE (Surface Premium) ---
+            Surface(
+                color = Color.White,
+                shape = RoundedCornerShape(28.dp),
+                shadowElevation = 4.dp,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Icon(
-                    Icons.Default.DateRange,
-                    contentDescription = null,
-                    tint = LocusActionOrange,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(Modifier.width(12.dp))
-                Text(
-                    text = fechaVisible,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        "FECHA DE NACIMIENTO",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = LocusActionOrange,
+                        letterSpacing = 1.sp
+                    )
 
-            // --- MENSAJE DE ERROR ---
-            if (mostrarError) {
-                Text(
-                    text = "Debes ser mayor de 18 años para usar Locus ✋",
-                    color = LocusErrorRed,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(top = 12.dp)
-                )
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    OutlinedButton(
+                        onClick = { datePickerDialog.show() },
+                        modifier = Modifier.fillMaxWidth().height(60.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = LocusBackground.copy(alpha = 0.5f),
+                            contentColor = LocusDeepPurple
+                        ),
+                        border = BorderStroke(
+                            width = if (mostrarError) 2.dp else 1.dp,
+                            color = if (mostrarError) LocusErrorRed else Color(0xFFD1D1D1)
+                        )
+                    ) {
+                        Icon(Icons.Default.CalendarMonth, null, tint = LocusActionOrange)
+                        Spacer(Modifier.width(12.dp))
+                        Text(fechaVisible, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    if (mostrarError) {
+                        Text(
+                            text = "Debes ser mayor de 18 años para usar Locus ✋",
+                            color = LocusErrorRed,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(top = 16.dp),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(48.dp))
@@ -140,25 +167,15 @@ fun EdadScreen(
                     if (viewModel.esMayorDeEdad()) onEdadValida() else mostrarError = true
                 },
                 enabled = fechaVisible != "Selecciona tu fecha",
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(60.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = LocusActionOrange,
-                    contentColor = Color.White,
-                    disabledContainerColor = Color(0xFFCCCCCC),
-                    disabledContentColor = Color.DarkGray
-                ),
-                shape = RoundedCornerShape(16.dp),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
+                modifier = Modifier.fillMaxWidth().height(60.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = LocusActionOrange),
+                shape = RoundedCornerShape(20.dp),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
             ) {
-                Text(
-                    "CONTINUAR",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    letterSpacing = 1.sp
-                )
+                Text("SIGUIENTE", fontWeight = FontWeight.Black, fontSize = 16.sp, color = Color.White)
             }
+
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }

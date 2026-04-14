@@ -63,7 +63,8 @@ fun MapaScreen(
     sessionManager: SessionManager,
     onNavigateToPerfil: () -> Unit,
     onNavigateToRecuerdos: () -> Unit,
-    onNavigateToFavoritos: () -> Unit
+    onNavigateToFavoritos: () -> Unit,
+    onNavigateToEstadisticas: () -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -306,7 +307,7 @@ fun MapaScreen(
                 ) {
                     FloatingActionButton(onClick = { menuExpandido = false; onNavigateToFavoritos() }, modifier = Modifier.size(56.dp), containerColor = LocusSurfaceWhite, contentColor = LocusActionOrange, shape = CircleShape) { Icon(Icons.Default.Favorite, "Favoritos") }
                     FloatingActionButton(onClick = { menuExpandido = false; onNavigateToRecuerdos() }, modifier = Modifier.size(56.dp), containerColor = LocusSurfaceWhite, contentColor = LocusActionOrange, shape = CircleShape) { Icon(Icons.Default.Collections, "Mis Recuerdos") }
-                    FloatingActionButton(onClick = { menuExpandido = false }, modifier = Modifier.size(56.dp), containerColor = LocusSurfaceWhite, contentColor = LocusActionOrange, shape = CircleShape) { Icon(Icons.Default.History, "Historial") }
+                    FloatingActionButton(onClick = { menuExpandido = false; onNavigateToEstadisticas() },modifier = Modifier.size(56.dp), containerColor = LocusSurfaceWhite, contentColor = LocusActionOrange, shape = CircleShape) { Icon(Icons.Default.Leaderboard, "Estadisticas") }
                     Spacer(modifier = Modifier.height(68.dp))
                 }
                 FloatingActionButton(
