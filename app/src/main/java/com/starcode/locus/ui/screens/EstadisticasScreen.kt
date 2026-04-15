@@ -3,6 +3,7 @@ package com.starcode.locus.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -15,6 +16,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.starcode.locus.ui.viewmodels.EstadisticasViewModel
@@ -26,12 +28,15 @@ fun EstadisticasScreen(
     onNavigateBack: () -> Unit
 ) {
     val stats by viewModel.stats.collectAsState()
-    val estaCargando by viewModel.estaCargando.collectAsState() // ✅ Añadido para feedback visual
+    val estaCargando by viewModel.estaCargando.collectAsState()
+    val visitados by viewModel.lugaresVisitados.collectAsState() // ✅ Recogemos la lista del ViewModel
 
     val LocusBackground = Color(0xFFFDF6EE)
     val LocusDeepPurple = Color(0xFF1D1B20)
+    val LocusOrange = Color(0xFFE6673D)
 
-    LaunchedEffect(Unit) { viewModel.cargarEstadisticas() }
+    // Cargamos tanto las stats como el historial al iniciar
+    LaunchedEffect(Unit) { viewModel.cargarTodo() }
 
     Scaffold(
         containerColor = LocusBackground,
@@ -51,7 +56,7 @@ fun EstadisticasScreen(
     ) { padding ->
         if (estaCargando) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = Color(0xFFE6673D))
+                CircularProgressIndicator(color = LocusOrange)
             }
         } else {
             Column(
@@ -68,13 +73,13 @@ fun EstadisticasScreen(
                     Text("Resumen real de tus aventuras.", fontSize = 14.sp, color = Color.Gray)
                 }
 
-                // KM REALES (Viene de la suma de actividades físicas en el backend)
+                // KM REALES
                 BigStatCard(
                     title = "Distancia Real",
-                    value = String.format("%.2f", stats.kmRecorridos), // ✅ Formateado a 2 decimales
+                    value = String.format("%.2f", stats.kmRecorridos),
                     unit = "km",
-                    icon = Icons.Default.DirectionsWalk,
-                    gradient = listOf(Color(0xFFE6673D), Color(0xFFFF8A65))
+                    icon = Icons.Default.Moving,
+                    gradient = listOf(LocusOrange, Color(0xFFFF8A65))
                 )
 
                 Row(
@@ -85,22 +90,21 @@ fun EstadisticasScreen(
                         title = "Lugares",
                         value = "${stats.lugaresVisitados}",
                         subtitle = "Visitados",
-                        icon = Icons.Default.Explore,
-                        color = Color(0xFF5D4037),
+                        icon = Icons.Default.LocationOn,
+                        color = Color(0xFFFF8A65),
                         modifier = Modifier.weight(1f)
                     )
-                    // ✅ AHORA MUESTRA PASOS REALES DEL SENSOR
                     MediumStatCard(
                         title = "Pasos",
                         value = "${stats.totalPasos}",
                         subtitle = "Caminados",
-                        icon = Icons.Default.Pets,
-                        color = Color(0xFF00796B),
+                        icon = Icons.Default.Hiking,
+                        color = Color(0xFFFF8A65),
                         modifier = Modifier.weight(1f)
                     )
                 }
 
-                // RANGO DINÁMICO (Calculado por el ViewModel)
+                // RANGO DINÁMICO
                 Surface(
                     color = Color.White,
                     shape = RoundedCornerShape(24.dp),
@@ -119,29 +123,120 @@ fun EstadisticasScreen(
                         }
                     }
                 }
+
+                // ✅ SECCIÓN: HISTORIAL DE LUGARES VISITADOS (Línea del Tiempo)
+                Text(
+                    text = "Mi Diario de Exploración",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = LocusDeepPurple,
+                    modifier = Modifier.padding(vertical = 16.dp)
+                )
+
+                if (visitados.isEmpty()) {
+                    Surface(
+                        color = Color.White.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(20.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            "Aún no has descubierto tesoros.",
+                            color = Color.Gray,
+                            modifier = Modifier.padding(24.dp),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                } else {
+                    Surface(
+                        color = Color.White,
+                        shape = RoundedCornerShape(24.dp),
+                        shadowElevation = 2.dp,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(20.dp)) {
+                            visitados.forEachIndexed { index, lugar ->
+                                Row(modifier = Modifier.height(IntrinsicSize.Min)) {
+
+                                    // --- COLUMNA DE LA LÍNEA DEL TIEMPO ---
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        modifier = Modifier.width(24.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(12.dp)
+                                                .background(LocusOrange, CircleShape)
+                                        )
+                                        if (index < visitados.size - 1) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .width(2.dp)
+                                                    .fillMaxHeight()
+                                                    .background(LocusOrange.copy(alpha = 0.2f))
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.width(16.dp))
+
+                                    // --- CONTENIDO DEL LUGAR ---
+                                    Column(
+                                        modifier = Modifier
+                                            .padding(bottom = 24.dp)
+                                            .fillMaxWidth()
+                                    ) {
+                                        Text(
+                                            // Si titulo_ficha es nulo, usamos el nombre que viene del back
+                                            // (Incluso si no está en la Entity, Kotlin lo maneja así si el back lo manda en el JSON)
+                                            text = lugar.titulo_ficha ?: lugar.nombre_lugar ?: "Lugar explorado",                                            fontWeight = FontWeight.Bold,
+                                            color = LocusDeepPurple,
+                                            fontSize = 16.sp
+                                        )
+
+                                        // Fila para la Fecha
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Spacer(Modifier.width(6.dp))
+                                            // 2. Lógica para la Fecha (Buscando el campo directamente)
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Event,
+                                                    contentDescription = null,
+                                                    tint = Color.Gray,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                                Spacer(Modifier.width(6.dp))
+
+                                                // Dentro de tu forEach de lugares visitados:
+                                                val fechaLimpia = lugar.fecha_visita?.split("T")?.get(0) ?: "Recientemente"
+
+                                                Text(
+                                                    text = "Visitado el: $fechaLimpia",
+                                                    color = Color.Gray,
+                                                    fontSize = 13.sp
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
             }
         }
     }
 }
 
 @Composable
-fun BigStatCard(
-    title: String,
-    value: String,
-    unit: String,
-    icon: ImageVector,
-    gradient: List<Color>
-) {
+fun BigStatCard(title: String, value: String, unit: String, icon: ImageVector, gradient: List<Color>) {
     Surface(
         shape = RoundedCornerShape(30.dp),
         modifier = Modifier.fillMaxWidth(),
         shadowElevation = 8.dp
     ) {
-        Box(
-            modifier = Modifier
-                .background(Brush.linearGradient(gradient))
-                .padding(24.dp)
-        ) {
+        Box(modifier = Modifier.background(Brush.linearGradient(gradient)).padding(24.dp)) {
             Column {
                 Icon(icon, null, tint = Color.White, modifier = Modifier.size(40.dp))
                 Spacer(Modifier.height(16.dp))
@@ -157,14 +252,7 @@ fun BigStatCard(
 }
 
 @Composable
-fun MediumStatCard(
-    title: String,
-    value: String,
-    subtitle: String,
-    icon: ImageVector,
-    color: Color,
-    modifier: Modifier = Modifier
-) {
+fun MediumStatCard(title: String, value: String, subtitle: String, icon: ImageVector, color: Color, modifier: Modifier = Modifier) {
     Surface(
         color = Color.White,
         shape = RoundedCornerShape(24.dp),

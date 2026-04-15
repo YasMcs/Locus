@@ -6,7 +6,6 @@ import android.content.SharedPreferences
 class SessionManager(context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences("locus_prefs", Context.MODE_PRIVATE)
 
-    // --- SEGURIDAD Y IDENTIDAD ---
     fun guardarToken(token: String) {
         prefs.edit().putString("auth_token", token).apply()
     }
@@ -23,7 +22,6 @@ class SessionManager(context: Context) {
         return prefs.getInt("user_id", -1)
     }
 
-    // --- FLUJO DE USUARIO (LO QUE FALTABA) ---
     fun guardarEdadValidada(esMayor: Boolean) {
         prefs.edit().putBoolean("edad_validada", esMayor).apply()
     }
@@ -32,8 +30,8 @@ class SessionManager(context: Context) {
         return prefs.getBoolean("edad_validada", false)
     }
 
-    // --- LIMPIEZA ---
-    fun borrarToken() {
+    // ✅ NUEVA FUNCIÓN: Limpieza total para Logout
+    fun cerrarSesion() {
         prefs.edit().clear().apply()
     }
 }

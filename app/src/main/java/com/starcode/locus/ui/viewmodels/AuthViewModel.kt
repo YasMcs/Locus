@@ -164,7 +164,7 @@ sealed class AuthResult {
     // --- CERRAR SESIÓN ---
     fun cerrarSesion() {
         viewModelScope.launch {
-            sessionManager.borrarToken()
+            sessionManager.cerrarSesion()
             dao.borrarTodosLosUsuarios() // ✅ Limpia la DB local para que el Perfil se vacíe
             dao.borrarTodosLosLugares()
             _authState.value = AuthResult.Idle

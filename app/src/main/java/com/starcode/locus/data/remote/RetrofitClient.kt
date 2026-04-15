@@ -1,6 +1,7 @@
 package com.starcode.locus.data.remote
 
 import android.content.Context
+import android.content.Intent
 import android.util.Log
 import okhttp3.OkHttpClient
 import okhttp3.Interceptor
@@ -11,10 +12,6 @@ import java.util.concurrent.TimeUnit
 
 object RetrofitClient {
     private const val BASE_URL = "https://locus-api-production-13fe.up.railway.app/"
-
-    private const val PROFESOR_URL = "http://192.168.1.86:3000/"
-
-
     private var appContext: Context? = null
 
     fun init(context: Context) {
@@ -22,40 +19,47 @@ object RetrofitClient {
         Log.d("LocusDebug", "✅ RetrofitClient.init llamado")
     }
 
-    // 2. Usamos 'by lazy' para que el cliente se cree una sola vez de forma eficiente
     val instance: LocusApiService by lazy {
-
-        val authInterceptor = Interceptor { chain ->
-            val requestBuilder = chain.request().newBuilder()
-
-            // Usamos el contexto inicializado para obtener el SessionManager
-            val context = appContext
-            if (context != null) {
-                val token = SessionManager(context).obtenerToken()
-                if (!token.isNullOrBlank()) {
-                    // .header reemplaza cualquier header previo (evita duplicados)
-                    requestBuilder.header("Authorization", "Bearer $token")
-                    Log.d("LocusDebug", "🚀 Interceptor: Enviando Token a ${chain.request().url}")
-                } else {
-                    Log.w("LocusDebug", "⚠️ Interceptor: TOKEN NO ENCONTRADO")
-                }
-            } else {
-                Log.e("LocusDebug", "❌ appContext es NULL")
-            }
-
-            chain.proceed(requestBuilder.build())
-        }
-
         val loggingInterceptor = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BODY
         }
 
+        // 1. Interceptor de AUTH (Envía el Token)
+        val authInterceptor = Interceptor { chain ->
+            val requestBuilder = chain.request().newBuilder()
+            appContext?.let { context ->
+                val token = SessionManager(context).obtenerToken()
+                if (!token.isNullOrBlank()) {
+                    requestBuilder.header("Authorization", "Bearer $token")
+                }
+            }
+            chain.proceed(requestBuilder.build())
+        }
+
+        // 2. ✅ NUEVO: Interceptor de Respuesta (Detecta Token vencido)
+        val responseInterceptor = Interceptor { chain ->
+            val request = chain.request()
+            val response = chain.proceed(request)
+
+            if (response.code == 401) {
+                Log.e("LocusDebug", "⚠️ Token vencido o inválido (401). Cerrando sesión...")
+
+                appContext?.let { context ->
+                    // Limpiamos los datos
+                    SessionManager(context).cerrarSesion()
+
+                    // Lógica de redirección (Opcional aquí, mejor en la UI, pero esto es un respaldo)
+                    // Puedes disparar un Broadcast o simplemente dejar que el ViewModel falle
+                }
+            }
+            response
+        }
+
         val client = OkHttpClient.Builder()
-            .addInterceptor(authInterceptor)
             .addInterceptor(loggingInterceptor)
+            .addInterceptor(authInterceptor)
+            .addInterceptor(responseInterceptor) // <-- Agregado aquí
             .connectTimeout(60, TimeUnit.SECONDS)
-            .writeTimeout(60, TimeUnit.SECONDS)
-            .readTimeout(60, TimeUnit.SECONDS)
             .build()
 
         Retrofit.Builder()
@@ -64,14 +68,5 @@ object RetrofitClient {
             .addConverterFactory(GsonConverterFactory.create())
             .build()
             .create(LocusApiService::class.java)
-    }
-
-    // Servicio dedicado a la gestión de tokens de notificación en red local
-    val notificationRegistryService: NotificationApi by lazy {
-        Retrofit.Builder()
-            .baseUrl(PROFESOR_URL)
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
-            .create(NotificationApi::class.java)
     }
 }

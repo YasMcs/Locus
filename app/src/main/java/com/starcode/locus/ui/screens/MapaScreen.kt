@@ -9,7 +9,10 @@ import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.*
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -66,17 +69,23 @@ fun MapaScreen(
     onNavigateToFavoritos: () -> Unit,
     onNavigateToEstadisticas: () -> Unit
 ) {
+
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    // Colores Locus
+    // --- ESTADOS DE LÓGICA (AÑADIDOS) ---
+    val statusVisita by viewModel.statusVisita.collectAsStateWithLifecycle()
+    val lugares by viewModel.lugares.collectAsStateWithLifecycle()
+    val cargando by viewModel.estaCargando.collectAsStateWithLifecycle()
+
+    // Colores Locus (Tus colores originales)
     val LocusActionOrange = Color(0xFFE6673D)
     val LocusBackground = Color(0xFFFDF6EE)
     val LocusDeepPurple = Color(0xFF1D1B20)
     val LocusSurfaceWhite = Color(0xFFFFFFFF)
 
-    // Estados de menú
+    // Estados de menú (Tu lógica original)
     var menuExpandido by remember { mutableStateOf(false) }
     val animY by animateDpAsState(
         targetValue = if (menuExpandido) 0.dp else 110.dp,
@@ -91,7 +100,7 @@ fun MapaScreen(
     val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.doggy))
     val progress by animateLottieCompositionAsState(composition, iterations = LottieConstants.IterateForever)
 
-    // --- ESCUCHADOR DE EVENTOS (Aviso de guardado) ---
+    // --- ESCUCHADOR DE EVENTOS (Tu lógica original) ---
     LaunchedEffect(Unit) {
         viewModel.eventos.collect { evento ->
             when (evento) {
@@ -111,7 +120,7 @@ fun MapaScreen(
         Configuration.getInstance().userAgentValue = context.packageName
     }
 
-    // Bitmap personalizado para el puntero GPS (Simplificado para el ejemplo)
+    // Bitmap personalizado para el puntero GPS (Tu diseño original)
     val pointerBitmap = remember {
         val size = 120
         val center = size / 2f
@@ -155,15 +164,13 @@ fun MapaScreen(
         }
     }
 
-    val lugares by viewModel.lugares.collectAsStateWithLifecycle()
-    val cargando by viewModel.estaCargando.collectAsStateWithLifecycle()
     var lugarSeleccionado by remember { mutableStateOf<LugarEntity?>(null) }
     var showBottomSheet by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) { viewModel.cargarLugares() }
 
-    // Geocoder para nombre de ubicación
+    // Geocoder (Tu lógica original)
     LaunchedEffect(locationOverlay.myLocation) {
         locationOverlay.myLocation?.let { geoPoint ->
             viewModel.actualizarUbicacionReal(geoPoint.latitude, geoPoint.longitude)
@@ -209,6 +216,7 @@ fun MapaScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
+        // --- MAPA CON TU CONFIGURACIÓN DE ZOOM OCULTO ---
         AndroidView(
             factory = {
                 mapView.apply {
@@ -233,19 +241,21 @@ fun MapaScreen(
                         setOnMarkerClickListener { _, _ ->
                             val userPos = locationOverlay.myLocation
                             val radioReal = lugar.radio_activacion ?: 100
+
+                            // Lógica de Registro de Visita integrada en tu flujo de cercanía
                             if (userPos != null) {
                                 val results = FloatArray(1)
                                 android.location.Location.distanceBetween(userPos.latitude, userPos.longitude, lugar.latitud, lugar.longitud, results)
                                 if (results[0].toInt() <= radioReal) {
                                     lugarSeleccionado = lugar
-                                    viewModel.seleccionarLugar(lugar) // Vital para la subida
+                                    viewModel.seleccionarLugar(lugar) // <--- CONEXIÓN CON EL BACKEND
                                     showBottomSheet = true
                                 } else {
                                     scope.launch { snackbarHostState.showSnackbar("👣 Te faltan ${results[0].toInt() - radioReal}m para desbloquear.") }
                                 }
                             } else {
                                 lugarSeleccionado = lugar
-                                viewModel.seleccionarLugar(lugar)
+                                viewModel.seleccionarLugar(lugar) // <--- REGISTRO RESPALDO
                                 showBottomSheet = true
                             }
                             true
@@ -257,7 +267,34 @@ fun MapaScreen(
             }
         )
 
-        // BARRA SUPERIOR
+        // --- ✅ NUEVO: DEBUG VISUAL DISCRETO (Debajo de la barra superior) ---
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 100.dp)
+                .zIndex(20f),
+            contentAlignment = Alignment.TopCenter
+        ) {
+            AnimatedVisibility(visible = statusVisita != null, enter = fadeIn(), exit = fadeOut()) {
+                statusVisita?.let { mensaje ->
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = if (mensaje.contains("✅")) Color(0xFF4CAF50) else LocusDeepPurple,
+                        shadowElevation = 4.dp
+                    ) {
+                        Text(
+                            text = mensaje,
+                            color = Color.White,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+
+        // BARRA SUPERIOR (Tu diseño original intacto)
         Column(
             modifier = Modifier
                 .align(Alignment.TopCenter)
@@ -281,18 +318,16 @@ fun MapaScreen(
             }
         }
 
-        // BOTÓN GPS
+        // BOTÓN GPS (Tu diseño original)
         FloatingActionButton(
             onClick = { locationOverlay.myLocation?.let { mapView.controller.animateTo(it) } },
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .padding(end = 16.dp),
+            modifier = Modifier.align(Alignment.CenterEnd).padding(end = 16.dp),
             containerColor = LocusSurfaceWhite,
             contentColor = LocusActionOrange,
             shape = RoundedCornerShape(16.dp)
         ) { Icon(Icons.Default.MyLocation, null) }
 
-        // MENÚ BURBUJA
+        // MENÚ BURBUJA (Tu diseño original intacto)
         Column(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
@@ -307,7 +342,7 @@ fun MapaScreen(
                 ) {
                     FloatingActionButton(onClick = { menuExpandido = false; onNavigateToFavoritos() }, modifier = Modifier.size(56.dp), containerColor = LocusSurfaceWhite, contentColor = LocusActionOrange, shape = CircleShape) { Icon(Icons.Default.Favorite, "Favoritos") }
                     FloatingActionButton(onClick = { menuExpandido = false; onNavigateToRecuerdos() }, modifier = Modifier.size(56.dp), containerColor = LocusSurfaceWhite, contentColor = LocusActionOrange, shape = CircleShape) { Icon(Icons.Default.Collections, "Mis Recuerdos") }
-                    FloatingActionButton(onClick = { menuExpandido = false; onNavigateToEstadisticas() },modifier = Modifier.size(56.dp), containerColor = LocusSurfaceWhite, contentColor = LocusActionOrange, shape = CircleShape) { Icon(Icons.Default.Leaderboard, "Estadisticas") }
+                    FloatingActionButton(onClick = { menuExpandido = false; onNavigateToEstadisticas() }, modifier = Modifier.size(56.dp), containerColor = LocusSurfaceWhite, contentColor = LocusActionOrange, shape = CircleShape) { Icon(Icons.Default.Leaderboard, "Estadísticas") }
                     Spacer(modifier = Modifier.height(68.dp))
                 }
                 FloatingActionButton(
@@ -324,12 +359,10 @@ fun MapaScreen(
 
         SnackbarHost(
             hostState = snackbarHostState,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .windowInsetsPadding(WindowInsets.navigationBars)
-                .padding(bottom = 80.dp)
+            modifier = Modifier.align(Alignment.BottomCenter).windowInsetsPadding(WindowInsets.navigationBars).padding(bottom = 80.dp)
         )
 
+        // LOADING CON PERRO LOTTIE (Tu diseño original)
         if (cargando) {
             Box(modifier = Modifier.fillMaxSize().background(LocusBackground.copy(alpha = 0.8f)).zIndex(10f), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -339,6 +372,7 @@ fun MapaScreen(
             }
         }
 
+        // BOTTOM SHEET (Tu diseño original)
         if (showBottomSheet && lugarSeleccionado != null) {
             ModalBottomSheet(
                 onDismissRequest = { showBottomSheet = false },

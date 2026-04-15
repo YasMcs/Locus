@@ -1,18 +1,26 @@
 package com.starcode.locus
 
 import android.Manifest
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Context
+import android.content.Intent
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.navigation.compose.rememberNavController
 import com.starcode.locus.data.database.AppDatabase
@@ -21,25 +29,36 @@ import com.starcode.locus.ui.theme.LocusTheme
 import com.google.firebase.messaging.FirebaseMessaging
 import com.starcode.locus.ui.screens.NavGraph
 import androidx.activity.enableEdgeToEdge
-import com.starcode.locus.data.remote.ActividadRequest
+import com.starcode.locus.data.remote.request.ActividadRequest
 import com.starcode.locus.data.remote.SessionManager
+import com.starcode.locus.ui.services.LocusFirebaseService
+import com.starcode.locus.ui.viewmodels.MapaViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import android.content.pm.PackageManager
+
+import androidx.core.content.ContextCompat
 
 class MainActivity : ComponentActivity(), SensorEventListener {
 
     private lateinit var sensorManager: SensorManager
     private var stepSensor: Sensor? = null
     private lateinit var sessionManager: SessionManager
+    private lateinit var mapaViewModel: MapaViewModel
+    private var pasosAlIniciarApp = -1
+    private var ultimoEnvioPasosTotales = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
-        // Inicializaciones
         RetrofitClient.init(applicationContext)
         sessionManager = SessionManager(applicationContext)
+
+        // Crear canal de notificaciones al arrancar
+        crearCanalNotificaciones()
+
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         stepSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
 
@@ -52,9 +71,15 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         val db = AppDatabase.getDatabase(this)
         val dao = db.locusDao()
 
+        mapaViewModel = MapaViewModel(application, dao)
+
         setContent {
             LocusTheme {
-                RequestAllPermissions() // ✅ Ahora incluye Cámara y Actividad Física
+                val context = androidx.compose.ui.platform.LocalContext.current
+
+                // ✅ LLAMADA LIMPIA
+                VerificadorDePermisos(context)
+
                 val navController = rememberNavController()
                 NavGraph(navController = navController, dao = dao)
             }
@@ -63,7 +88,22 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         configurarFirebase()
     }
 
-    // --- LÓGICA DEL SENSOR DE PASOS ---
+    private fun crearCanalNotificaciones() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channelId = "locus_channel_urgent"
+            val name = "Notificaciones Locus"
+            val descriptionText = "Alertas de proximidad de lugares"
+            val importance = NotificationManager.IMPORTANCE_HIGH
+            val channel = NotificationChannel(channelId, name, importance).apply {
+                description = descriptionText
+            }
+            val notificationManager: NotificationManager =
+                getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.createNotificationChannel(channel)
+        }
+    }
+
+    // --- LÓGICA DE SENSORES (Mantenida) ---
     override fun onResume() {
         super.onResume()
         stepSensor?.also { sensor ->
@@ -78,36 +118,39 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 
     override fun onSensorChanged(event: SensorEvent?) {
         if (event?.sensor?.type == Sensor.TYPE_STEP_COUNTER) {
-            val pasosTotales = event.values[0].toInt()
+            val pasosTotalesDesdeReinicio = event.values[0].toInt()
+            if (pasosAlIniciarApp == -1) {
+                pasosAlIniciarApp = pasosTotalesDesdeReinicio
+                ultimoEnvioPasosTotales = pasosTotalesDesdeReinicio
+                return
+            }
+            val diferenciaParaServidor = pasosTotalesDesdeReinicio - ultimoEnvioPasosTotales
+            val pasosSesionActual = pasosTotalesDesdeReinicio - pasosAlIniciarApp
+            val distanciaSesionActual = pasosSesionActual * 0.76
 
-            // Lógica: Cada 50 pasos, enviamos una actualización de distancia
-            // Multiplicamos pasos por 0.76 (zancada promedio) para obtener metros
-            val distanciaMetros = pasosTotales * 0.76f
+            mapaViewModel.actualizarMonitorActividad(pasosSesionActual, distanciaSesionActual)
 
-            enviarActividadAlServidor(pasosTotales, distanciaMetros)
+            if (diferenciaParaServidor >= 3) {
+                val distanciaTramo = diferenciaParaServidor * 0.76
+                enviarActividadAlServidor(diferenciaParaServidor, distanciaTramo)
+                ultimoEnvioPasosTotales = pasosTotalesDesdeReinicio
+            }
         }
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
-    private fun enviarActividadAlServidor(pasos: Int, distancia: Float) {
+    private fun enviarActividadAlServidor(pasos: Int, distancia: Double) {
+        if (!::sessionManager.isInitialized || !::mapaViewModel.isInitialized) return
         val userId = sessionManager.getUserId()
-        val token = sessionManager.obtenerToken()
+        if (userId <= 0) return
 
-        if (userId > 0 && !token.isNullOrBlank()) {
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val request = ActividadRequest(
-                        id_usuario = userId,
-                        distancia_metros = distancia,
-                        pasos = pasos,
-                        duracion_segundos = 0 // Podrías calcular el tiempo si fuera necesario
-                    )
-                    RetrofitClient.instance.registrarActividad("Bearer $token", request)
-                    Log.d("LocusDebug", "👣 Actividad enviada: $distancia m")
-                } catch (e: Exception) {
-                    Log.e("LocusDebug", "❌ Error enviando pasos: ${e.message}")
-                }
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val request = ActividadRequest(userId, distancia, pasos, 10)
+                RetrofitClient.instance.registrarActividad(request)
+            } catch (e: Exception) {
+                Log.e("LocusDebug", "Error actividad: ${e.message}")
             }
         }
     }
@@ -115,25 +158,15 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     private fun configurarFirebase() {
         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
             if (task.isSuccessful && task.result != null) {
-                val token = task.result
-                val sharedPref = getSharedPreferences("LocusPrefs", Context.MODE_PRIVATE)
-                val usuarioLogueado = sharedPref.getString("usuario_logueado", null)
+                val fcmToken = task.result
+                val usuarioLogueado = getSharedPreferences("locus_prefs", Context.MODE_PRIVATE).getString("usuario_logueado", null)
 
-                if (usuarioLogueado != null && token.isNotEmpty()) {
-                    Thread {
+                if (usuarioLogueado != null) {
+                    CoroutineScope(Dispatchers.IO).launch {
                         try {
-                            val url = java.net.URL("https://locus-api-production-13fe.up.railway.app/api/users/update-token")
-                            val conn = url.openConnection() as java.net.HttpURLConnection
-                            conn.requestMethod = "POST"
-                            conn.setRequestProperty("Content-Type", "application/json")
-                            conn.doOutput = true
-                            val jsonInputString = """{"username": "$usuarioLogueado", "token": "$token"}"""
-                            conn.outputStream.use { it.write(jsonInputString.toByteArray(charset("utf-8"))) }
-                            Log.d("FCM_Locus", "✅ Token actualizado en server")
-                        } catch (e: Exception) {
-                            Log.e("FCM_Locus", "❌ Error update token: ${e.message}")
-                        }
-                    }.start()
+                            // Endpoint Railway para actualizar FCM
+                        } catch (e: Exception) { }
+                    }
                 }
             }
         }
@@ -141,30 +174,77 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 }
 
 @Composable
-fun RequestAllPermissions() {
+fun VerificadorDePermisos(context: Context) {
+    val prefs = remember { context.getSharedPreferences("LocusPrefs", Context.MODE_PRIVATE) }
+
+    // Solo mostramos el diálogo si:
+    // 1. NO tenemos el permiso de fondo.
+    // 2. NUNCA hemos guardado la marca de "ya solicitado".
+    // 3. Estamos en Android 10 o superior.
+    var mostrarDialogo by remember {
+        mutableStateOf(
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                    ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+                    !prefs.getBoolean("background_perm_requested", false)
+        )
+    }
+
     val launcher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        Log.d("LocusDebug", "Permisos actualizados: $permissions")
+        val fineLocation = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
+        if (fineLocation && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            // Si después de pedir los básicos, falta el de fondo, mostramos el aviso
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                mostrarDialogo = true
+            }
+        }
     }
 
+    // Pedir permisos básicos SOLO si faltan
     LaunchedEffect(Unit) {
-        val permissions = mutableListOf(
+        val basicos = mutableListOf(
             Manifest.permission.ACCESS_FINE_LOCATION,
             Manifest.permission.ACCESS_COARSE_LOCATION,
-            Manifest.permission.CAMERA // ✅ PERMISO DE CÁMARA AÑADIDO
+            Manifest.permission.CAMERA
         )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) basicos.add(Manifest.permission.ACTIVITY_RECOGNITION)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) basicos.add(Manifest.permission.POST_NOTIFICATIONS)
 
-        // Permiso de Actividad Física (Necesario desde Android 10+)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            permissions.add(Manifest.permission.ACTIVITY_RECOGNITION)
+        val faltanBasicos = basicos.any {
+            ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
         }
 
-        // Permiso de Notificaciones (Android 13+)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+        if (faltanBasicos) {
+            launcher.launch(basicos.toTypedArray())
         }
+    }
 
-        launcher.launch(permissions.toTypedArray())
+    if (mostrarDialogo) {
+        AlertDialog(
+            onDismissRequest = { mostrarDialogo = false },
+            title = { Text("Ubicación en segundo plano") },
+            text = { Text("Para avisarte de lugares cercanos con la app cerrada, selecciona 'Permitir todo el tiempo' en los ajustes de ubicación.") },
+            confirmButton = {
+                Button(onClick = {
+                    // ✅ BLOQUEO INMEDIATO: Guardamos la marca ANTES de irnos a ajustes
+                    prefs.edit().putBoolean("background_perm_requested", true).apply()
+                    mostrarDialogo = false
+
+                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = Uri.fromParts("package", context.packageName, null)
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(intent)
+                }) { Text("Ir a Ajustes") }
+            },
+            dismissButton = {
+                Button(onClick = {
+                    // Si dice que no, guardamos la marca para no molestar más
+                    prefs.edit().putBoolean("background_perm_requested", true).apply()
+                    mostrarDialogo = false
+                }) { Text("Ahora no") }
+            }
+        )
     }
 }

@@ -69,6 +69,9 @@ dependencies {
     implementation("com.google.firebase:firebase-messaging-ktx")
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation(libs.play.services.measurement.api)
+    implementation(libs.androidx.compose.animation)
+    implementation(libs.androidx.compose.ui.text)
+    implementation(libs.play.services.location)
 
     // --- BASE DE DATOS LOCAL (ROOM) ---
     val room_version = "2.6.1"
@@ -95,4 +98,6 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 }

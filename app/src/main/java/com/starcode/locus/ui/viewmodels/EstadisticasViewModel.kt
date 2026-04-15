@@ -3,6 +3,8 @@ package com.starcode.locus.ui.viewmodels
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.starcode.locus.data.entities.LugarEntity
+import com.starcode.locus.data.entities.VisitaHistorialDTO
 import com.starcode.locus.data.remote.RetrofitClient
 import com.starcode.locus.data.remote.SessionManager
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,6 +20,9 @@ class EstadisticasViewModel(private val sessionManager: SessionManager) : ViewMo
     private val _estaCargando = MutableStateFlow(false)
     val estaCargando: StateFlow<Boolean> = _estaCargando.asStateFlow()
 
+    private val _lugaresVisitados = MutableStateFlow<List<VisitaHistorialDTO>>(emptyList())
+    val lugaresVisitados: StateFlow<List<VisitaHistorialDTO>> = _lugaresVisitados.asStateFlow()
+
     data class EstadisticasData(
         val lugaresVisitados: Int = 0,
         val kmRecorridos: Double = 0.0,
@@ -26,46 +31,53 @@ class EstadisticasViewModel(private val sessionManager: SessionManager) : ViewMo
         val categoriaRango: String = "Explorador"
     )
 
-    /**
-     * Llamamos a esta función cada vez que el usuario entra a la pantalla
-     * o cuando queremos refrescar tras una actividad.
-     */
-    fun cargarEstadisticas() {
+    init {
+        cargarTodo()
+    }
+
+    fun cargarTodo() {
         val userId = sessionManager.getUserId()
         val tokenRaw = sessionManager.obtenerToken()
 
-        if (userId <= 0 || tokenRaw.isNullOrBlank()) {
-            Log.e("LocusDebug", "Estadisticas: Sesión no válida")
-            return
-        }
+        if (userId <= 0 || tokenRaw.isNullOrBlank()) return
+
+        val authHeader = "Bearer $tokenRaw"
 
         viewModelScope.launch {
             _estaCargando.value = true
+
+            // --- LLAMADA 1: ESTADÍSTICAS GLOBALES ---
             try {
-                val token = "Bearer $tokenRaw"
-
-                // 1. Llamada al nuevo endpoint de estadísticas consolidadas del servidor
-                val globales = RetrofitClient.instance.obtenerEstadisticasTotales(token, userId)
-
-                // 2. Opcional: Seguimos trayendo las fotos si quieres mostrar el conteo de recuerdos
-                val fotos = RetrofitClient.instance.obtenerImagenesUsuario(token, userId)
-
-                // 3. Actualizamos el estado con DATOS REALES del backend
-                _stats.value = EstadisticasData(
+                val globales = RetrofitClient.instance.obtenerEstadisticasTotales(userId, authHeader)
+                _stats.value = _stats.value.copy(
                     lugaresVisitados = globales.lugares_descubiertos,
                     kmRecorridos = globales.total_km,
                     totalPasos = globales.total_pasos,
-                    totalFotos = fotos.size,
                     categoriaRango = calcularRango(globales.lugares_descubiertos)
                 )
+            } catch (e: Exception) {
+                Log.e("LocusDebug", "❌ Error en Estadísticas: ${e.message}")
+            }
 
-                Log.d("LocusDebug", "✅ Estadísticas reales cargadas desde el servidor")
+            // --- LLAMADA 2: FOTOS ---
+            try {
+                val fotos = RetrofitClient.instance.obtenerImagenesUsuario(authHeader, userId)
+                _stats.value = _stats.value.copy(totalFotos = fotos.size)
+            } catch (e: Exception) {
+                Log.e("LocusDebug", "❌ Error en Fotos: ${e.message}")
+            }
+
+            // --- LLAMADA 3: HISTORIAL DE LUGARES ---
+            try {
+                // Si esta llamada falla por la ruta o el formato, ya no matará a las otras dos
+                val historial = RetrofitClient.instance.obtenerLugaresVisitados(authHeader, userId)
+                _lugaresVisitados.value = historial
 
             } catch (e: Exception) {
-                Log.e("LocusDebug", "❌ Error cargando estadísticas reales: ${e.message}")
-            } finally {
-                _estaCargando.value = false
+                Log.e("LocusDebug", "❌ Error en Historial: ${e.message}")
             }
+
+            _estaCargando.value = false
         }
     }
 
